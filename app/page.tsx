@@ -34,6 +34,12 @@ interface Servicio {
 
 const SLIDES_HERO = [
   {
+    url: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&q=80&w=1000',
+    subtitulo: 'Tardeo & Coctelería',
+    titulo: 'Vinos Gallegos & Copas de Autor',
+    descripcion: 'El lugar perfecto para desconectar al terminar el día.',
+  },
+  {
     url: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&q=80&w=1000',
     subtitulo: 'Izar Café Bar',
     titulo: 'Un punto de encuentro en A Coruña',
@@ -50,12 +56,6 @@ const SLIDES_HERO = [
     subtitulo: 'Desayunos & Bakery',
     titulo: 'Pan de Masa Madre y Repostería',
     descripcion: 'Tostadas gourmet y horneados frescos todas las mañanas.',
-  },
-  {
-    url: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&q=80&w=1000',
-    subtitulo: 'Tardeo & Coctelería',
-    titulo: 'Vinos Gallegos & Copas de Autor',
-    descripcion: 'El lugar perfecto para desconectar al terminar el día.',
   },
 ];
 
@@ -110,10 +110,10 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-[#faf7f2] text-slate-800 font-sans selection:bg-amber-800 selection:text-amber-100 overflow-x-hidden">
       
-      {/* Topbar móvil adaptado */}
+      {/* Topbar */}
       <div className="bg-amber-950 text-amber-200 text-[11px] sm:text-xs py-2 px-3 text-center font-medium tracking-wide flex justify-between items-center max-w-7xl mx-auto rounded-b-xl border-b border-amber-800/40 shadow-sm">
         <span className="flex items-center gap-1.5 truncate">
-          <Anchor className="w-3.5 h-3.5 text-amber-400 shrink-0" /> A Coruña 🇪🇸
+          <Anchor className="w-3.5 h-3.5 text-amber-400 shrink-0" /> A Coruña, Galicia 🇪🇸
         </span>
         <span className="hidden md:inline italic text-amber-300">
           ☕ Café de especialidad seleccionado & Tostado artesanal
@@ -123,7 +123,7 @@ export default function Home() {
         </span>
       </div>
 
-      {/* Header móvil responsivo */}
+      {/* Header con el Logo y Botón Principal */}
       <header className="sticky top-0 z-30 bg-[#faf7f2]/95 backdrop-blur-md border-b border-amber-900/10 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
           <div className="flex items-center gap-2.5 group cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
@@ -140,6 +140,7 @@ export default function Home() {
             </div>
           </div>
 
+          {/* Menú visible en Escritorio */}
           <nav className="hidden md:flex gap-8 font-medium text-slate-700 text-sm">
             <a href="#inicio" className="hover:text-amber-800 transition">Inicio</a>
             <a href="#propuesta" className="hover:text-amber-800 transition">Nuestra Propuesta</a>
@@ -155,13 +156,34 @@ export default function Home() {
             <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" /> Ver Carta
           </button>
         </div>
+
+        {/* NAVEGACIÓN DESLIZABLE EXCLUSIVA PARA MÓVIL (Rellena el espacio del menú desktop) */}
+        <div className="md:hidden flex gap-2 overflow-x-auto px-4 py-2 border-t border-amber-900/5 bg-[#f4ece1]/60 no-scrollbar">
+          <a href="#inicio" className="text-[11px] font-semibold text-slate-700 bg-white/80 border border-amber-900/10 px-3 py-1 rounded-full whitespace-nowrap shadow-xs">
+            Inicio
+          </a>
+          <a href="#propuesta" className="text-[11px] font-semibold text-slate-700 bg-white/80 border border-amber-900/10 px-3 py-1 rounded-full whitespace-nowrap shadow-xs">
+            Nuestra Propuesta
+          </a>
+          <a href="#destacados" className="text-[11px] font-semibold text-slate-700 bg-white/80 border border-amber-900/10 px-3 py-1 rounded-full whitespace-nowrap shadow-xs">
+            Favoritos
+          </a>
+          <a href="#experiencias" className="text-[11px] font-semibold text-slate-700 bg-white/80 border border-amber-900/10 px-3 py-1 rounded-full whitespace-nowrap shadow-xs">
+            El Local
+          </a>
+          <a href="#contacto" className="text-[11px] font-semibold text-slate-700 bg-white/80 border border-amber-900/10 px-3 py-1 rounded-full whitespace-nowrap shadow-xs">
+            Contacto
+          </a>
+        </div>
       </header>
 
-      {/* Hero Section adaptado para Móviles */}
-      <section id="inicio" className="relative py-8 sm:py-16 px-4 sm:px-6 max-w-7xl mx-auto grid md:grid-cols-2 gap-8 md:gap-12 items-center">
-        <div>
-          <span className="inline-flex items-center gap-1.5 px-3.5 py-1 bg-amber-900/10 border border-amber-900/20 text-amber-900 font-semibold text-[11px] sm:text-xs rounded-full mb-4 uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5 text-amber-700" /> Tradición Herculina
+      {/* HERO SECTION REDEFINIDA: En móvil la imagen VA PRIMERO o al lado */}
+      <section id="inicio" className="relative py-6 sm:py-16 px-4 sm:px-6 max-w-7xl mx-auto flex flex-col-reverse md:grid md:grid-cols-2 gap-6 sm:gap-12 items-center">
+        
+        {/* Lado Texto */}
+        <div className="w-full">
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-1 bg-amber-900/10 border border-amber-900/20 text-amber-900 font-semibold text-[11px] sm:text-xs rounded-full mb-3 sm:mb-6 uppercase tracking-wider">
+            <Sparkles className="w-3.5 h-3.5 text-amber-700" /> Tradición & Calidad Herculina
           </span>
 
           <h1 className="text-3xl sm:text-6xl font-serif font-black text-slate-900 leading-[1.15] mb-3 sm:mb-4">
@@ -171,14 +193,14 @@ export default function Home() {
             </span>
           </h1>
 
-          <p className="text-sm sm:text-lg text-slate-600 mb-6 sm:mb-8 leading-relaxed max-w-lg">
+          <p className="text-xs sm:text-lg text-slate-600 mb-5 sm:mb-8 leading-relaxed max-w-lg">
             Un espacio acogedor en A Coruña donde el café de especialidad, la gastronomía artesanal y la coctelería se encuentran para regalarte el mejor momento del día.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+          <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-4">
             <button 
               onClick={() => abrirCartaEnCategoria('todos')}
-              className="bg-amber-900 hover:bg-slate-900 text-amber-100 font-bold px-6 py-3 rounded-xl sm:rounded-2xl shadow-xl transition flex items-center justify-center gap-2 text-sm"
+              className="bg-amber-900 hover:bg-slate-900 text-amber-100 font-bold px-6 py-3 rounded-xl sm:rounded-2xl shadow-xl transition flex items-center justify-center gap-2 text-xs sm:text-sm"
             >
               <BookOpen className="w-4 h-4 text-amber-400" /> Explorar Carta Interactiva
             </button>
@@ -186,29 +208,29 @@ export default function Home() {
               href="https://maps.google.com" 
               target="_blank" 
               rel="noreferrer"
-              className="bg-white border border-slate-300 hover:border-amber-800 text-slate-800 font-bold px-6 py-3 rounded-xl sm:rounded-2xl transition shadow-sm flex items-center justify-center gap-2 text-sm"
+              className="bg-white border border-slate-300 hover:border-amber-800 text-slate-800 font-bold px-6 py-3 rounded-xl sm:rounded-2xl transition shadow-sm flex items-center justify-center gap-2 text-xs sm:text-sm"
             >
               <MapPin className="w-4 h-4 text-amber-800" /> ¿Cómo Llegar?
             </a>
           </div>
 
-          <div className="mt-8 sm:mt-12 flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-8 border-t border-slate-300/60 pt-6 text-slate-600 text-xs sm:text-sm font-medium">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-amber-800 shrink-0" />
-              <span>Lun - Dom: 08:00 - 00:00</span>
+          <div className="mt-6 sm:mt-12 flex items-center justify-between sm:justify-start gap-4 sm:gap-8 border-t border-slate-300/60 pt-4 sm:pt-8 text-slate-600 text-[11px] sm:text-sm font-medium">
+            <div className="flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-amber-800 shrink-0" />
+              <span>08:00 - 00:00</span>
             </div>
-            <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-amber-800 shrink-0" />
+            <div className="flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-amber-800 shrink-0" />
               <span>A Coruña, Galicia</span>
             </div>
           </div>
         </div>
 
-        {/* Carrusel Móvil Perfecto */}
-        <div className="relative mt-2 md:mt-0">
+        {/* Carrusel Protagonista (En Móvil aparece PRIMERO con mayor jerarquía) */}
+        <div className="relative w-full">
           <div className="absolute -inset-2 bg-gradient-to-tr from-amber-800/20 to-slate-900/10 rounded-3xl blur-2xl opacity-70"></div>
           
-          <div className="relative bg-[#f4ece1] border border-amber-900/20 rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl p-2 sm:p-3 h-[360px] sm:h-[440px]">
+          <div className="relative bg-[#f4ece1] border-2 border-amber-900/20 rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl p-2 sm:p-3 h-[320px] sm:h-[440px]">
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentSlide}
@@ -223,8 +245,8 @@ export default function Home() {
                   alt={SLIDES_HERO[currentSlide].titulo} 
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent flex flex-col justify-end p-5 sm:p-8 text-white">
-                  <span className="text-amber-400 font-serif italic text-xs sm:text-base mb-1">
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent flex flex-col justify-end p-4 sm:p-8 text-white">
+                  <span className="text-amber-400 font-serif italic text-xs sm:text-base mb-0.5 sm:mb-1">
                     {SLIDES_HERO[currentSlide].subtitulo}
                   </span>
                   <h3 className="text-lg sm:text-2xl font-bold leading-tight mb-1 sm:mb-2">
@@ -237,22 +259,22 @@ export default function Home() {
               </motion.div>
             </AnimatePresence>
 
-            {/* Controles del Carrusel sutiles */}
+            {/* Flechas de Navegación de Cristal */}
             <button
               onClick={prevSlide}
-              className="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-8 h-8 sm:w-11 sm:h-11 bg-slate-950/60 backdrop-blur-md border border-amber-500/30 text-amber-100 rounded-full flex items-center justify-center hover:bg-amber-900 transition shadow-lg"
+              className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 z-10 w-9 h-9 sm:w-11 sm:h-11 bg-slate-950/60 backdrop-blur-md border border-amber-500/30 text-amber-100 rounded-full flex items-center justify-center hover:bg-amber-900 transition shadow-xl"
             >
               <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
 
             <button
               onClick={nextSlide}
-              className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-8 h-8 sm:w-11 sm:h-11 bg-slate-950/60 backdrop-blur-md border border-amber-500/30 text-amber-100 rounded-full flex items-center justify-center hover:bg-amber-900 transition shadow-lg"
+              className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-10 w-9 h-9 sm:w-11 sm:h-11 bg-slate-950/60 backdrop-blur-md border border-amber-500/30 text-amber-100 rounded-full flex items-center justify-center hover:bg-amber-900 transition shadow-xl"
             >
               <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
 
-            <div className="absolute bottom-4 right-5 sm:bottom-6 sm:right-8 z-10 flex gap-1.5">
+            <div className="absolute bottom-3 right-4 sm:bottom-6 sm:right-8 z-10 flex gap-1.5">
               {SLIDES_HERO.map((_, idx) => (
                 <button
                   key={idx}
@@ -267,6 +289,7 @@ export default function Home() {
             </div>
           </div>
         </div>
+
       </section>
 
       {/* Sección "Nuestra Propuesta" */}
@@ -427,7 +450,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Footer adaptado a pantallas pequeñas */}
+      {/* Footer */}
       <footer id="contacto" className="bg-slate-950 text-slate-400 border-t border-slate-800 py-12 sm:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 grid md:grid-cols-3 gap-8 sm:gap-12 mb-8 sm:mb-12">
           <div>
@@ -617,7 +640,7 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* WhatsApp Floating Adaptado a Móvil */}
+      {/* WhatsApp Floating */}
       <a
         href="https://wa.me/34981000000?text=Hola!%20Quiero%20consultar%20disponibilidad%20o%20hacer%20una%20reserva%20en%20Izar%20Café%20Bar."
         target="_blank"
