@@ -3,10 +3,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import { 
   Coffee, Utensils, Sparkles, MapPin, Clock, Phone, Mail, 
   Search, X, Anchor, Share2, ArrowRight, BookOpen, ChevronRight, ChevronLeft,
-  Flame, Leaf, Wheat, Eye, Globe, ExternalLink
+  Flame, Leaf, Wheat, Eye, Globe, ExternalLink, ShieldCheck, Lock
 } from 'lucide-react';
 
 interface Categoria {
@@ -36,7 +37,82 @@ interface Servicio {
   imagen_url: string;
 }
 
-const LOGO_URL = "https://lh3.googleusercontent.com/pw/AP1GczOD8aFp96tH0L1S15fF1d7n8LgA3K8vT9cK_Z6xW10bY0cR-u4N3E2M=w1200"; 
+// LOGO DE RESPALDO EN CASO DE NO RECONOCER LA BASE DE DATOS
+const LOGO_FALLBACK = "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&q=80&w=400"; 
+
+// DATOS RESPALDO CARTA
+const CATEGORIAS_FALLBACK: Categoria[] = [
+  { id: 'cat-1', nombre: 'Cafés & Bebidas', slug: 'cafes' },
+  { id: 'cat-2', nombre: 'Desayunos & Tostadas', slug: 'desayunos' },
+  { id: 'cat-3', nombre: 'Tapas & Raciones', slug: 'tapas' },
+  { id: 'cat-4', nombre: 'Coctelería & Bar', slug: 'cocteleria' },
+  { id: 'cat-5', nombre: 'Bakery & Postres', slug: 'bakery' },
+];
+
+const PRODUCTOS_FALLBACK: Producto[] = [
+  {
+    id: 'prod-1',
+    categoria_id: 'cat-1',
+    nombre: 'Espresso Doble Arábica',
+    descripcion: 'Café de especialidad 100% Arábica con notas equilibradas de chocolate y frutos secos.',
+    precio: 2.20,
+    imagen_url: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&q=80&w=600',
+    es_destacado: true,
+    etiqueta: 'Especialidad'
+  },
+  {
+    id: 'prod-2',
+    categoria_id: 'cat-2',
+    nombre: 'Tostada de Aguacate y Huevo Poché',
+    descripcion: 'Pan de masa madre tostado al momento con crema de aguacate, huevo poché y semillas de sésamo.',
+    precio: 5.50,
+    imagen_url: 'https://images.unsplash.com/photo-1509722747041-616f39b57569?auto=format&fit=crop&q=80&w=600',
+    es_destacado: true,
+    etiqueta: 'Recomendado'
+  },
+  {
+    id: 'prod-3',
+    categoria_id: 'cat-3',
+    nombre: 'Tabla de Quesos Gallegos',
+    descripcion: 'Selección de quesos artesanales Arzúa-Ulloa, San Simón da Costa y Tetilla con mermelada casera.',
+    precio: 12.00,
+    imagen_url: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&q=80&w=600',
+    es_destacado: true,
+    etiqueta: 'Tradición'
+  },
+  {
+    id: 'prod-4',
+    categoria_id: 'cat-4',
+    nombre: 'Cocktail de Autor Izar',
+    descripcion: 'Ginebra gallega seleccionada, licor de tarta de Santiago, tónica cítrica y toque fresco de romero.',
+    precio: 8.50,
+    imagen_url: 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&q=80&w=600',
+    es_destacado: false,
+    etiqueta: 'Nuevo'
+  }
+];
+
+// DATOS RESPALDO ESPACIOS DEL LOCAL
+const SERVICIOS_FALLBACK: Servicio[] = [
+  {
+    id: 'serv-1',
+    titulo: 'Barra Tradicional & Especialidad',
+    descripcion: 'El corazón de nuestro local. El aroma a café recién molido y el mejor ambiente para comenzar el día.',
+    imagen_url: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&q=80&w=600'
+  },
+  {
+    id: 'serv-2',
+    titulo: 'Zona de Salón & Tardeo',
+    descripcion: 'Espacio confortable y acogedor en A Coruña ideal para compartir raciones, catas y copas al atardecer.',
+    imagen_url: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&q=80&w=600'
+  },
+  {
+    id: 'serv-3',
+    titulo: 'Terraza Exterior',
+    descripcion: 'Disfruta de la brisa atlántica y el ambiente herculino al aire libre con tus amigos.',
+    imagen_url: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&q=80&w=600'
+  }
+];
 
 const SLIDES_HERO = [
   {
@@ -66,21 +142,18 @@ const SLIDES_HERO = [
 ];
 
 export default function Home() {
-  const [categorias, setCategorias] = useState<Categoria[]>([]);
-  const [productos, setProductos] = useState<Producto[]>([]);
-  const [servicios, setServicios] = useState<Servicio[]>([]);
+  const router = useRouter();
+  const [logoUrl, setLogoUrl] = useState<string>(LOGO_FALLBACK);
+  const [categorias, setCategorias] = useState<Categoria[]>(CATEGORIAS_FALLBACK);
+  const [productos, setProductos] = useState<Producto[]>(PRODUCTOS_FALLBACK);
+  const [servicios, setServicios] = useState<Servicio[]>(SERVICIOS_FALLBACK);
   const [busqueda, setBusqueda] = useState<string>('');
   
-  // VISTA PRINCIPAL: 'landing', 'web', 'menu'
   const [vistaActual, setVistaActual] = useState<'landing' | 'web' | 'menu'>('landing');
-
-  // Categoría activa en la barra superior
-  const [categoriaActivaScroll, setCategoriaActivaScroll] = useState<string>('');
-
+  const [categoriaActivaScroll, setCategoriaActivaScroll] = useState<string>(CATEGORIAS_FALLBACK[0].id);
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
   const [currentSlide, setCurrentSlide] = useState<number>(0);
 
-  // Referencias para elementos del DOM
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const tabsContainerRef = useRef<HTMLDivElement | null>(null);
@@ -95,21 +168,26 @@ export default function Home() {
 
   useEffect(() => {
     async function cargarDatos() {
-      const { data: cats } = await supabase.from('categorias').select('*').order('orden');
-      const { data: prods } = await supabase.from('productos').select('*').eq('disponible', true);
-      const { data: servs } = await supabase.from('servicios').select('*');
+      try {
+        const { data: conf } = await supabase.from('configuracion').select('logo_url').eq('id', 'empresa').single();
+        const { data: cats } = await supabase.from('categorias').select('*').order('orden');
+        const { data: prods } = await supabase.from('productos').select('*').eq('disponible', true);
+        const { data: servs } = await supabase.from('servicios').select('*');
 
-      if (cats && cats.length > 0) {
-        setCategorias(cats);
-        setCategoriaActivaScroll(cats[0].id);
+        if (conf?.logo_url) setLogoUrl(conf.logo_url);
+        if (cats && cats.length > 0) {
+          setCategorias(cats);
+          setCategoriaActivaScroll(cats[0].id);
+        }
+        if (prods && prods.length > 0) setProductos(prods);
+        if (servs && servs.length > 0) setServicios(servs);
+      } catch (e) {
+        console.warn("Conexión con Supabase en espera, datos locales activos.");
       }
-      if (prods) setProductos(prods);
-      if (servs) setServicios(servs);
     }
     cargarDatos();
   }, []);
 
-  // IntersectionObserver para ScrollSpy ultra-fluido sin re-renders agresivos ni saltos
   useEffect(() => {
     if (vistaActual !== 'menu' || categorias.length === 0) return;
 
@@ -146,14 +224,13 @@ export default function Home() {
     return () => observer.disconnect();
   }, [vistaActual, categorias]);
 
-  // Función para desplazarse a una categoría al hacer tap en la barra
   const scrollToCategory = (catId: string) => {
     setCategoriaActivaScroll(catId);
     isClickingTab.current = true;
 
     const element = categoryRefs.current[catId];
     if (element) {
-      const offset = 65; // Ajuste para la altura de la barra sticky
+      const offset = 65;
       const bodyRect = document.body.getBoundingClientRect().top;
       const elementRect = element.getBoundingClientRect().top;
       const elementPosition = elementRect - bodyRect;
@@ -171,15 +248,18 @@ export default function Home() {
   };
 
   const productosFiltrados = productos.filter((p) => {
-    const coincideBusqueda = p.nombre.toLowerCase().includes(busqueda.toLowerCase()) || 
-                             (p.descripcion && p.descripcion.toLowerCase().includes(busqueda.toLowerCase()));
-    return coincideBusqueda;
+    return p.nombre.toLowerCase().includes(busqueda.toLowerCase()) || 
+           (p.descripcion && p.descripcion.toLowerCase().includes(busqueda.toLowerCase()));
   });
 
   const productosDestacados = productos.filter((p) => p.es_destacado).slice(0, 4);
 
   const nextSlide = () => setCurrentSlide((prev) => (prev + 1) % SLIDES_HERO.length);
   const prevSlide = () => setCurrentSlide((prev) => (prev - 1 + SLIDES_HERO.length) % SLIDES_HERO.length);
+
+  const irAlDashboard = () => {
+    router.push('/dashboard');
+  };
 
   return (
     <div className="min-h-screen bg-[#faf7f2] text-slate-800 font-sans selection:bg-amber-800 selection:text-amber-100">
@@ -204,14 +284,14 @@ export default function Home() {
           </div>
 
           <div className="relative z-10 flex flex-col items-center text-center mt-6">
-            <div className="p-2.5 bg-white/80 backdrop-blur-md rounded-2xl border border-amber-900/10 mb-3 shadow-md">
-              <img src={LOGO_URL} alt="Izar Café Bar" className="h-14 sm:h-16 object-contain" />
+            <div className="p-2.5 bg-white/80 backdrop-blur-md rounded-2xl border border-amber-900/10 mb-3 shadow-md flex items-center justify-center">
+              <img src={logoUrl} alt="Izar Café Bar" className="h-14 sm:h-16 w-32 sm:w-36 object-contain" />
             </div>
             <h1 className="font-serif font-bold text-2xl sm:text-3xl tracking-wide text-amber-950">IZAR CAFÉ BAR</h1>
             <p className="text-xs text-amber-900/80 italic font-serif mt-1">"Pequeñas pausas, grandes historias" • A Coruña 🇪🇸</p>
           </div>
 
-          <div className="relative z-10 w-full max-w-sm my-auto space-y-3.5 px-2">
+          <div className="relative z-10 w-full max-w-sm my-auto space-y-3 px-2">
             <button 
               onClick={() => {
                 setVistaActual('menu');
@@ -265,6 +345,18 @@ export default function Home() {
               </span>
               <ExternalLink className="w-4 h-4 text-slate-400" />
             </a>
+
+            {/* ACCESO ADMINISTRATIVO */}
+            <button 
+              onClick={irAlDashboard}
+              className="w-full bg-amber-950/10 hover:bg-amber-950 hover:text-amber-100 text-amber-950 font-bold py-3 px-5 rounded-2xl border border-amber-900/20 transition-all flex items-center justify-between group text-xs mt-2"
+            >
+              <span className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-amber-800 group-hover:text-amber-400 transition-colors" />
+                Acceso Administración
+              </span>
+              <ChevronRight className="w-4 h-4 text-amber-900/50 group-hover:text-amber-400 transition-colors" />
+            </button>
           </div>
 
           <div className="relative z-10 text-center space-y-2 pb-2">
@@ -282,10 +374,11 @@ export default function Home() {
       )}
 
       {/* ========================================================================= */}
-      {/* 2. PÁGINA WEB COMPLETA                                                    */}
+      {/* 2. PÁGINA WEB COMPLETA RESTAURADA (CON TODAS LAS SECCIONES)              */}
       {/* ========================================================================= */}
       {vistaActual === 'web' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          {/* Topbar Banner */}
           <div className="bg-amber-950 text-amber-200 text-[11px] sm:text-xs py-2 px-3 text-center font-medium tracking-wide flex justify-between items-center max-w-7xl mx-auto rounded-b-xl border-b border-amber-800/40 shadow-sm">
             <span className="flex items-center gap-1.5 truncate">
               <Anchor className="w-3.5 h-3.5 text-amber-400 shrink-0" /> A Coruña, Galicia 🇪🇸
@@ -298,14 +391,11 @@ export default function Home() {
             </span>
           </div>
 
+          {/* Header */}
           <header className="sticky top-0 z-30 bg-[#faf7f2]/95 backdrop-blur-md border-b border-amber-900/10 shadow-sm">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
               <div className="flex items-center group cursor-pointer" onClick={() => setVistaActual('landing')}>
-                <img 
-                  src={LOGO_URL} 
-                  alt="Izar Café Bar Logo" 
-                  className="h-10 sm:h-14 object-contain"
-                />
+                <img src={logoUrl} alt="Izar Café Bar Logo" className="h-10 sm:h-14 w-28 sm:w-36 object-contain" />
               </div>
 
               <nav className="hidden md:flex gap-8 font-medium text-slate-700 text-sm">
@@ -386,6 +476,7 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Carrusel */}
             <div className="relative w-full">
               <div className="relative bg-[#f4ece1] border-2 border-amber-900/20 rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl p-2 sm:p-3 h-[320px] sm:h-[440px]">
                 <AnimatePresence mode="wait">
@@ -447,7 +538,7 @@ export default function Home() {
             </div>
           </section>
 
-          {/* Sección Propuesta */}
+          {/* SECCIÓN NUESTRA PROPUESTA */}
           <section id="propuesta" className="py-12 sm:py-20 bg-white border-y border-amber-900/10">
             <div className="max-w-7xl mx-auto px-4 sm:px-6">
               <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-14">
@@ -538,7 +629,7 @@ export default function Home() {
             </div>
           </section>
 
-          {/* Favoritos */}
+          {/* SECCIÓN FAVORITOS */}
           {productosDestacados.length > 0 && (
             <section id="destacados" className="py-12 sm:py-20 bg-slate-900 text-stone-100 border-y border-slate-800">
               <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -593,7 +684,7 @@ export default function Home() {
             </section>
           )}
 
-          {/* Sección El Local */}
+          {/* SECCIÓN EL LOCAL (LUGARES DEL RESTAURANTE RESTAURADOS) */}
           <section id="experiencias" className="py-12 sm:py-20 bg-[#f4ece1] border-t border-amber-900/10">
             <div className="max-w-7xl mx-auto px-4 sm:px-6">
               <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-16">
@@ -617,63 +708,52 @@ export default function Home() {
             </div>
           </section>
 
-          {/* Footer */}
+          {/* FOOTER */}
           <footer id="contacto" className="bg-slate-950 text-slate-400 border-t border-slate-800 py-12 sm:py-16">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 grid md:grid-cols-3 gap-8 sm:gap-12 mb-8 sm:mb-12">
               <div>
-                <div className="mb-4">
-                  <img 
-                    src={LOGO_URL} 
-                    alt="Izar Café Bar Logo" 
-                    className="h-12 sm:h-16 object-contain bg-white/5 p-2 rounded-xl border border-slate-800"
-                  />
-                </div>
+                <img src={logoUrl} alt="Izar Café Bar Logo" className="h-12 sm:h-16 w-32 sm:w-40 object-contain bg-white/5 p-2 rounded-xl border border-slate-800 mb-4" />
                 <p className="text-amber-400/90 text-xs sm:text-sm italic font-serif mb-3">"Pequeñas pausas, grandes historias"</p>
                 <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">
-                  Café de especialidad, barra y cocina tradicional en A Coruña. Tu lugar de encuentro de día y de noche.
+                  Café de especialidad, barra y cocina tradicional en A Coruña.
                 </p>
               </div>
 
               <div>
                 <h4 className="font-bold text-white mb-3 uppercase text-[10px] sm:text-xs tracking-widest text-amber-400">Horarios & Ubicación</h4>
-                <div className="space-y-2.5 text-xs sm:text-sm">
-                  <p className="flex items-center gap-2"><Clock className="w-4 h-4 text-amber-400 shrink-0" /> Lunes a Domingo: 08:00 - 00:00</p>
-                  <p className="flex items-center gap-2"><MapPin className="w-4 h-4 text-amber-400 shrink-0" /> A Coruña, Galicia, España</p>
-                  <p className="flex items-center gap-2"><Phone className="w-4 h-4 text-amber-400 shrink-0" /> +34 981 000 000</p>
-                </div>
+                <p className="text-xs sm:text-sm flex items-center gap-2"><Clock className="w-4 h-4 text-amber-400" /> 08:00 - 00:00 h</p>
+                <p className="text-xs sm:text-sm flex items-center gap-2 mt-2"><MapPin className="w-4 h-4 text-amber-400" /> A Coruña, Galicia, España</p>
               </div>
 
               <div>
-                <h4 className="font-bold text-white mb-3 uppercase text-[10px] sm:text-xs tracking-widest text-amber-400">Redes & Contacto</h4>
-                <p className="text-xs text-slate-400 mb-3">Entérate de nuestros eventos, catas de café y sugerencias del día.</p>
-                <div className="flex gap-2.5">
-                  <a href="#" className="p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-300">
-                    <Share2 className="w-4 h-4" />
-                  </a>
-                  <a href="#" className="p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-300">
-                    <Mail className="w-4 h-4" />
-                  </a>
-                </div>
+                <h4 className="font-bold text-white mb-3 uppercase text-[10px] sm:text-xs tracking-widest text-amber-400">Contacto</h4>
+                <p className="text-xs text-slate-400">+34 981 000 000</p>
               </div>
             </div>
 
             <div className="border-t border-slate-900 pt-6 text-center text-[11px] sm:text-xs text-slate-600 max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row justify-between items-center gap-3">
               <p>© {new Date().getFullYear()} Izar Café Bar • A Coruña.</p>
-              <button onClick={() => setVistaActual('landing')} className="text-slate-500 hover:text-amber-400 transition underline">
-                Volver a la Portada Inicial
-              </button>
+              
+              <div className="flex gap-4 items-center">
+                <button onClick={() => setVistaActual('landing')} className="text-slate-500 hover:text-amber-400 transition underline">
+                  Volver al Inicio
+                </button>
+                <button onClick={irAlDashboard} className="text-slate-400 hover:text-amber-400 transition underline flex items-center gap-1.5 font-bold">
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-500" /> Acceso Administración
+                </button>
+              </div>
             </div>
           </footer>
         </motion.div>
       )}
 
       {/* ========================================================================= */}
-      {/* 3. CARTA DIGITAL INTERACTIVA (BARRA TOTALMENTE FIJA Y SIN BUGS)          */}
+      {/* 3. CARTA DIGITAL INTERACTIVA                                              */}
       {/* ========================================================================= */}
       {vistaActual === 'menu' && (
         <div className="min-h-screen bg-[#faf7f2] text-slate-800 font-sans pb-20 relative">
           
-          {/* Header Superior (Marca + Volver) */}
+          {/* Header Superior */}
           <div className="bg-amber-950 text-amber-100 p-3.5 sm:p-4 flex items-center justify-between shadow-md">
             <button 
               onClick={() => setVistaActual('landing')}
@@ -687,15 +767,20 @@ export default function Home() {
               <p className="text-[10px] text-amber-300/80">A Coruña • Galicia</p>
             </div>
 
-            <button 
-              onClick={() => {
-                setVistaActual('web');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              className="text-amber-300 text-xs font-semibold hover:text-white transition"
-            >
-              Web
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={irAlDashboard} title="Acceso Admin" className="p-2 bg-amber-900/60 hover:bg-amber-800 rounded-xl text-amber-300 transition">
+                <Lock className="w-3.5 h-3.5" />
+              </button>
+              <button 
+                onClick={() => {
+                  setVistaActual('web');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="text-amber-300 text-xs font-semibold hover:text-white transition"
+              >
+                Web
+              </button>
+            </div>
           </div>
 
           {/* Banner Ilustrado Superior */}
@@ -716,7 +801,7 @@ export default function Home() {
             </div>
           </div>
 
-          {/* BARRA SUPERIOR DE CATEGORÍAS FIJA Y PEAGADA ARRIBA (STICKY TOP-0 DEFINITIVO) */}
+          {/* BARRA SUPERIOR DE CATEGORÍAS FIJA */}
           <div className="sticky top-0 z-50 bg-[#faf7f2] border-b border-amber-900/15 shadow-md py-1 px-2">
             <div 
               ref={tabsContainerRef}
@@ -734,7 +819,6 @@ export default function Home() {
                     }`}
                   >
                     {cat.nombre}
-                    {/* Línea indicadora inferior animada bajo la categoría activa */}
                     {esActiva && (
                       <motion.div 
                         layoutId="activeTabIndicator"
@@ -766,7 +850,7 @@ export default function Home() {
             </div>
           </div>
 
-          {/* CARTA DE PRODUCTOS TARJETAS GRANDES VERTICALES (MODELO MENUPP) */}
+          {/* CARTA DE PRODUCTOS TARJETAS GRANDES VERTICALES */}
           <div className="max-w-5xl mx-auto px-4 py-4 space-y-12">
             {categorias.map((cat) => {
               const productosDeCat = productosFiltrados.filter((p) => p.categoria_id === cat.id);
@@ -780,14 +864,12 @@ export default function Home() {
                   ref={(el) => { categoryRefs.current[cat.id] = el; }}
                   className="space-y-6 pt-2"
                 >
-                  {/* Título de la Categoría */}
                   <div className="text-center space-y-1 border-b border-amber-900/10 pb-3">
                     <h3 className="font-serif font-black text-2xl sm:text-3xl text-amber-950 uppercase tracking-wider">
                       {cat.nombre}
                     </h3>
                   </div>
 
-                  {/* Cuadrícula de Tarjetas Grandes de Producto */}
                   {productosDeCat.length === 0 ? (
                     <p className="text-slate-500 text-xs italic text-center py-4">No hay opciones en esta sección.</p>
                   ) : (
@@ -798,14 +880,12 @@ export default function Home() {
                           onClick={() => setProductoSeleccionado(p)}
                           className="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition duration-300 cursor-pointer flex flex-col justify-between relative group"
                         >
-                          {/* Badge Flotante Superior en la Esquina Derecha */}
                           {p.etiqueta && (
                             <span className="absolute top-3 right-3 z-10 bg-amber-800 text-amber-100 font-bold text-[9px] px-3 py-1 rounded-full uppercase shadow-md">
                               {p.etiqueta}
                             </span>
                           )}
 
-                          {/* Foto Principal Centrada (200px de altura) */}
                           <div className="h-52 w-full overflow-hidden bg-slate-100 relative">
                             <img 
                               src={p.imagen_url} 
@@ -814,7 +894,6 @@ export default function Home() {
                             />
                           </div>
 
-                          {/* Información Centrada con Tipografía Serif Gourmet */}
                           <div className="p-5 text-center flex-1 flex flex-col justify-between">
                             <div>
                               <h4 className="font-serif font-bold text-slate-900 text-lg leading-snug group-hover:text-amber-900 transition-colors">

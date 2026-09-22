@@ -2,11 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Plus, Edit2, Trash2, CheckCircle2, XCircle, Star, Search, Image as ImageIcon } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { 
+  Utensils, FolderPlus, Settings, LogOut, Plus, Edit2, Trash2, 
+  ExternalLink, Sparkles, Upload, Check, X, Eye, EyeOff, AlertCircle, Printer, Image as ImageIcon
+} from 'lucide-react';
 
 interface Categoria {
   id: string;
   nombre: string;
+  slug: string;
 }
 
 interface Producto {
@@ -21,322 +26,711 @@ interface Producto {
   etiqueta?: string;
 }
 
-export default function DashboardProductos() {
-  const [productos, setProductos] = useState<Producto[]>([]);
+export default function DashboardPage() {
+  const router = useRouter();
+  const [seccion, setSeccion] = useState<'productos' | 'categorias' | 'ajustes'>('productos');
+
   const [categorias, setCategorias] = useState<Categoria[]>([]);
-  const [cargando, setCargando] = useState(true);
-  const [busqueda, setBusqueda] = useState('');
-  
-  // Estado Modal Formulario
-  const [mostrarModal, setMostrarModal] = useState(false);
-  const [productoEditar, setProductoEditar] = useState<Producto | null>(null);
-  
-  // Campos del Formulario
-  const [formData, setFormData] = useState({
-    nombre: '',
-    categoria_id: '',
-    descripcion: '',
-    precio: '',
-    imagen_url: '',
-    es_destacado: false,
-    disponible: true,
-    etiqueta: '',
-  });
+  const [productos, setProductos] = useState<Producto[]>([]);
+  const [cargandoLista, setCargandoLista] = useState(true);
+
+  // Modal producto
+  const [mostrarModalProd, setMostrarModalProd] = useState(false);
+  const [editandoProdId, setEditandoProdId] = useState<string | null>(null);
+
+  // Formulario Producto
+  const [prodCategoria, setProdCategoria] = useState('');
+  const [prodNombre, setProdNombre] = useState('');
+  const [prodDescripcion, setProdDescripcion] = useState('');
+  const [prodPrecio, setProdPrecio] = useState('');
+  const [prodImagen, setProdImagen] = useState('');
+  const [prodEtiqueta, setProdEtiqueta] = useState('');
+  const [prodDestacado, setProdDestacado] = useState(false);
+  const [prodDisponible, setProdDisponible] = useState(true);
+  const [procesandoImagen, setProcesandoImagen] = useState(false);
+
+  // Formulario Categoría
+  const [nombreCat, setNombreCat] = useState('');
+
+  // Ajustes Marca & Espacios
+  const [logoUrl, setLogoUrl] = useState<string>("https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&q=80&w=400");
+  const [imagenLocalUrl, setImagenLocalUrl] = useState<string>("https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&q=80&w=800");
+  const [guardadoAjustes, setGuardadoAjustes] = useState(false);
 
   useEffect(() => {
     cargarDatos();
+    cargarAjustes();
   }, []);
 
-  async function cargarDatos() {
-    setCargando(true);
-    const { data: cats } = await supabase.from('categorias').select('*').order('orden');
-    const { data: prods } = await supabase.from('productos').select('*').order('creado_en', { ascending: false });
+  const cargarDatos = async () => {
+    setCargandoLista(true);
+    try {
+      const { data: prods } = await supabase.from('productos').select('*');
+      const { data: cats } = await supabase.from('categorias').select('*').order('orden', { ascending: true });
 
-    if (cats) setCategorias(cats);
-    if (prods) setProductos(prods);
-    setCargando(false);
-  }
-
-  const abrirModalCrear = () => {
-    setProductoEditar(null);
-    setFormData({
-      nombre: '',
-      categoria_id: categorias[0]?.id || '',
-      descripcion: '',
-      precio: '',
-      imagen_url: '',
-      es_destacado: false,
-      disponible: true,
-      etiqueta: '',
-    });
-    setMostrarModal(true);
+      if (prods) setProductos(prods);
+      if (cats && cats.length > 0) {
+        setCategorias(cats);
+        if (!prodCategoria) setProdCategoria(cats[0].id);
+      }
+    } catch (err) {
+      console.error("Error al obtener datos:", err);
+    } finally {
+      setCargandoLista(false);
+    }
   };
 
-  const abrirModalEditar = (prod: Producto) => {
-    setProductoEditar(prod);
-    setFormData({
-      nombre: prod.nombre,
-      categoria_id: prod.categoria_id,
-      descripcion: prod.descripcion || '',
-      precio: prod.precio.toString(),
-      imagen_url: prod.imagen_url || '',
-      es_destacado: prod.es_destacado,
-      disponible: prod.disponible,
-      etiqueta: prod.etiqueta || '',
+  const cargarAjustes = async () => {
+    try {
+      const { data } = await supabase.from('configuracion').select('logo_url, imagen_local_url').eq('id', 'empresa').single();
+      if (data?.logo_url) setLogoUrl(data.logo_url);
+      if (data?.imagen_local_url) setImagenLocalUrl(data.imagen_local_url);
+    } catch (e) {
+      console.log("No se pudo cargar la configuración de la base de datos.");
+    }
+  };
+
+  const guardarConfiguracionMarca = async () => {
+    setGuardadoAjustes(false);
+    try {
+      const { error } = await supabase
+        .from('configuracion')
+        .upsert({ 
+          id: 'empresa', 
+          logo_url: logoUrl, 
+          imagen_local_url: imagenLocalUrl,
+          updated_at: new Date().toISOString() 
+        });
+
+      if (!error) {
+        setGuardadoAjustes(true);
+        setTimeout(() => setGuardadoAjustes(false), 3000);
+      } else {
+        alert("Error guardando los cambios: " + error.message);
+      }
+    } catch (e: any) {
+      alert("Ocurrió un error al guardar.");
+    }
+  };
+
+  const cerrarSesion = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
+  };
+
+  const optimizarImagenLocal = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      setProcesandoImagen(true);
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800;
+          const scaleSize = MAX_WIDTH / img.width;
+          
+          if (scaleSize < 1) {
+            canvas.width = MAX_WIDTH;
+            canvas.height = img.height * scaleSize;
+          } else {
+            canvas.width = img.width;
+            canvas.height = img.height;
+          }
+
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          setProcesandoImagen(false);
+          resolve(dataUrl);
+        };
+        img.onerror = (err) => {
+          setProcesandoImagen(false);
+          reject(err);
+        };
+      };
     });
-    setMostrarModal(true);
+  };
+
+  const handleSubirImagen = async (e: React.ChangeEvent<HTMLInputElement>, tipo: 'producto' | 'logo' | 'local') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const imagenOptimizada = await optimizarImagenLocal(file);
+      if (tipo === 'producto') setProdImagen(imagenOptimizada);
+      else if (tipo === 'logo') setLogoUrl(imagenOptimizada);
+      else if (tipo === 'local') setImagenLocalUrl(imagenOptimizada);
+    } catch (err) {
+      alert("Error al procesar la imagen.");
+    }
   };
 
   const guardarProducto = async (e: React.FormEvent) => {
     e.preventDefault();
-    const payload = {
-      nombre: formData.nombre,
-      categoria_id: formData.categoria_id,
-      descripcion: formData.descripcion,
-      precio: parseFloat(formData.precio),
-      imagen_url: formData.imagen_url || 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&q=80&w=600',
-      es_destacado: formData.es_destacado,
-      disponible: formData.disponible,
-      etiqueta: formData.etiqueta || null,
+    if (!prodNombre.trim() || !prodPrecio) return;
+
+    const payload: any = {
+      nombre: prodNombre,
+      descripcion: prodDescripcion,
+      precio: parseFloat(prodPrecio),
+      imagen_url: prodImagen || 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&q=80&w=600',
+      es_destacado: prodDestacado,
+      disponible: prodDisponible,
+      etiqueta: prodEtiqueta || null
     };
 
-    if (productoEditar) {
-      await supabase.from('productos').update(payload).eq('id', productoEditar.id);
+    if (prodCategoria) payload.categoria_id = prodCategoria;
+
+    if (editandoProdId) {
+      await supabase.from('productos').update(payload).eq('id', editandoProdId);
     } else {
       await supabase.from('productos').insert([payload]);
     }
 
-    setMostrarModal(false);
-    cargarDatos();
+    limpiarFormularioProd();
+    setMostrarModalProd(false);
+    await cargarDatos();
   };
 
-  const toggleDisponible = async (prod: Producto) => {
-    await supabase.from('productos').update({ disponible: !prod.disponible }).eq('id', prod.id);
-    cargarDatos();
+  const abrirEditarProducto = (p: Producto) => {
+    setEditandoProdId(p.id);
+    setProdCategoria(p.categoria_id || '');
+    setProdNombre(p.nombre);
+    setProdDescripcion(p.descripcion || '');
+    setProdPrecio(p.precio.toString());
+    setProdImagen(p.imagen_url || '');
+    setProdEtiqueta(p.etiqueta || '');
+    setProdDestacado(p.es_destacado);
+    setProdDisponible(p.disponible);
+    setMostrarModalProd(true);
   };
 
-  const toggleDestacado = async (prod: Producto) => {
-    await supabase.from('productos').update({ es_destacado: !prod.es_destacado }).eq('id', prod.id);
-    cargarDatos();
+  const cambiarDisponibilidadRapida = async (p: Producto) => {
+    await supabase.from('productos').update({ disponible: !p.disponible }).eq('id', p.id);
+    await cargarDatos();
   };
 
   const eliminarProducto = async (id: string) => {
-    if (confirm('¿Estás seguro de eliminar este producto del menú?')) {
-      await supabase.from('productos').delete().eq('id', id);
-      cargarDatos();
-    }
+    if (!confirm('¿Seguro que deseas eliminar este producto?')) return;
+    await supabase.from('productos').delete().eq('id', id);
+    await cargarDatos();
   };
 
-  const productosFiltrados = productos.filter((p) =>
-    p.nombre.toLowerCase().includes(busqueda.toLowerCase())
-  );
+  const limpiarFormularioProd = () => {
+    setEditandoProdId(null);
+    setProdNombre('');
+    setProdDescripcion('');
+    setProdPrecio('');
+    setProdImagen('');
+    setProdEtiqueta('');
+    setProdDestacado(false);
+    setProdDisponible(true);
+  };
+
+  const guardarCategoria = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nombreCat.trim()) return;
+
+    const slug = nombreCat.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
+    await supabase.from('categorias').insert([{ nombre: nombreCat, slug }]);
+
+    setNombreCat('');
+    await cargarDatos();
+  };
+
+  const eliminarCategoria = async (id: string) => {
+    if (!confirm('¿Eliminar esta categoría?')) return;
+    await supabase.from('categorias').delete().eq('id', id);
+    await cargarDatos();
+  };
 
   return (
-    <div>
-      {/* Header Superior */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+    <div className="min-h-screen bg-[#faf7f2] flex flex-col md:flex-row font-sans text-slate-800">
+      
+      {/* SIDEBAR ÚNICO */}
+      <aside className="w-full md:w-64 bg-amber-950 text-amber-100 p-5 flex flex-col justify-between shrink-0 shadow-2xl z-20">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-white">Administración de Carta</h1>
-          <p className="text-stone-400 text-sm mt-1">Añade, modifica precios o cambia la disponibilidad de tus productos.</p>
-        </div>
-        <button
-          onClick={abrirModalCrear}
-          className="bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold px-5 py-3 rounded-xl transition shadow-lg shadow-amber-600/20 flex items-center gap-2 text-sm"
-        >
-          <Plus className="w-5 h-5" /> Nuevo Producto
-        </button>
-      </div>
-
-      {/* Buscador */}
-      <div className="relative max-w-md mb-6">
-        <Search className="absolute left-4 top-3.5 w-5 h-5 text-stone-400" />
-        <input
-          type="text"
-          placeholder="Buscar por nombre..."
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-          className="w-full bg-stone-950 border border-stone-800 rounded-xl pl-12 pr-4 py-3 text-stone-100 focus:outline-none focus:border-amber-500"
-        />
-      </div>
-
-      {/* Lista / Tabla de Productos */}
-      {cargando ? (
-        <div className="text-center py-12 text-stone-400">Cargando productos de la carta...</div>
-      ) : (
-        <div className="bg-stone-950 border border-stone-800 rounded-2xl overflow-hidden shadow-xl">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-stone-300">
-              <thead className="bg-stone-900 border-b border-stone-800 text-stone-400 font-semibold uppercase text-xs">
-                <tr>
-                  <th className="p-4">Producto</th>
-                  <th className="p-4">Precio</th>
-                  <th className="p-4">Destacado</th>
-                  <th className="p-4">Disponible</th>
-                  <th className="p-4 text-right">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-stone-800/60">
-                {productosFiltrados.map((p) => (
-                  <tr key={p.id} className="hover:bg-stone-900/50 transition">
-                    <td className="p-4 flex items-center gap-3">
-                      <img
-                        src={p.imagen_url}
-                        alt={p.nombre}
-                        className="w-12 h-12 rounded-lg object-cover border border-stone-800"
-                      />
-                      <div>
-                        <span className="font-bold text-white block">{p.nombre}</span>
-                        {p.etiqueta && (
-                          <span className="text-[10px] font-bold uppercase text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">
-                            {p.etiqueta}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="p-4 font-bold text-amber-400">{p.precio.toFixed(2)}€</td>
-                    <td className="p-4">
-                      <button
-                        onClick={() => toggleDestacado(p)}
-                        className={`p-2 rounded-lg border transition ${
-                          p.es_destacado
-                            ? 'bg-amber-500/10 border-amber-500/40 text-amber-400'
-                            : 'bg-stone-900 border-stone-800 text-stone-600 hover:text-stone-400'
-                        }`}
-                      >
-                        <Star className="w-4 h-4 fill-current" />
-                      </button>
-                    </td>
-                    <td className="p-4">
-                      <button
-                        onClick={() => toggleDisponible(p)}
-                        className={`px-3 py-1 rounded-full text-xs font-bold transition flex items-center gap-1.5 ${
-                          p.disponible
-                            ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400'
-                            : 'bg-red-500/10 border border-red-500/30 text-red-400'
-                        }`}
-                      >
-                        {p.disponible ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
-                        {p.disponible ? 'Disponible' : 'Agotado'}
-                      </button>
-                    </td>
-                    <td className="p-4 text-right space-x-2">
-                      <button
-                        onClick={() => abrirModalEditar(p)}
-                        className="p-2 bg-stone-900 border border-stone-800 rounded-lg hover:border-amber-500/50 hover:text-amber-400 transition"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => eliminarProducto(p.id)}
-                        className="p-2 bg-stone-900 border border-stone-800 rounded-lg hover:border-red-500/50 hover:text-red-400 transition"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="flex items-center gap-3 mb-8 pb-4 border-b border-amber-800/40">
+            <div className="p-2 bg-white/10 rounded-xl border border-amber-700/50">
+              <Sparkles className="w-5 h-5 text-amber-400" />
+            </div>
+            <div>
+              <h1 className="font-serif font-bold text-amber-100 text-sm tracking-wide">IZAR CAFÉ BAR</h1>
+              <p className="text-[10px] text-amber-300/70">Panel Administrativo</p>
+            </div>
           </div>
-        </div>
-      )}
 
-      {/* Modal Formulario Crear/Editar */}
-      {mostrarModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-stone-950 border border-stone-800 max-w-lg w-full rounded-2xl p-6 shadow-2xl">
-            <h2 className="text-xl font-bold text-white mb-4">
-              {productoEditar ? 'Editar Producto' : 'Crear Nuevo Producto'}
-            </h2>
-            <form onSubmit={guardarProducto} className="space-y-4">
+          <nav className="space-y-1.5">
+            <button
+              onClick={() => setSeccion('productos')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all ${
+                seccion === 'productos' 
+                  ? 'bg-amber-900 text-amber-100 shadow-md border border-amber-700/50' 
+                  : 'text-amber-200/70 hover:bg-amber-900/40 hover:text-white'
+              }`}
+            >
+              <Utensils className="w-4 h-4 text-amber-400" /> Carta & Productos
+            </button>
+
+            <button
+              onClick={() => setSeccion('categorias')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all ${
+                seccion === 'categorias' 
+                  ? 'bg-amber-900 text-amber-100 shadow-md border border-amber-700/50' 
+                  : 'text-amber-200/70 hover:bg-amber-900/40 hover:text-white'
+              }`}
+            >
+              <FolderPlus className="w-4 h-4 text-amber-400" /> Categorías
+            </button>
+
+            <button
+              onClick={() => router.push('/dashboard/carta-fisica')}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-amber-200/90 hover:bg-amber-900/40 hover:text-white transition-all"
+            >
+              <Printer className="w-4 h-4 text-amber-400" /> Carta Física / PDF
+            </button>
+
+            <button
+              onClick={() => setSeccion('ajustes')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all ${
+                seccion === 'ajustes' 
+                  ? 'bg-amber-900 text-amber-100 shadow-md border border-amber-700/50' 
+                  : 'text-amber-200/70 hover:bg-amber-900/40 hover:text-white'
+              }`}
+            >
+              <Settings className="w-4 h-4 text-amber-400" /> Configurar Marca & Fotos
+            </button>
+          </nav>
+        </div>
+
+        <div className="pt-6 border-t border-amber-800/40 space-y-2">
+          <button
+            onClick={() => router.push('/')}
+            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-amber-900/30 hover:bg-amber-900/60 text-xs font-medium text-amber-200 transition"
+          >
+            <span>Ver Sitio Web</span>
+            <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+          </button>
+
+          <button
+            onClick={cerrarSesion}
+            className="w-full flex items-center gap-2 px-3.5 py-2.5 text-xs font-bold text-rose-300 hover:bg-rose-950/40 rounded-xl transition"
+          >
+            <LogOut className="w-4 h-4" /> Cerrar Sesión
+          </button>
+        </div>
+      </aside>
+
+      {/* ÁREA DE CONTENIDO */}
+      <main className="flex-1 p-4 sm:p-8 overflow-y-auto">
+        {seccion === 'productos' && (
+          <div className="max-w-6xl mx-auto space-y-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-amber-900/10 shadow-xs">
               <div>
-                <label className="block text-xs font-bold text-stone-400 uppercase mb-1">Nombre</label>
-                <input
-                  required
-                  type="text"
-                  value={formData.nombre}
-                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                  className="w-full bg-stone-900 border border-stone-800 rounded-xl px-4 py-2.5 text-stone-100 focus:outline-none focus:border-amber-500"
-                />
+                <h2 className="font-serif font-bold text-xl text-slate-900">Gestión de la Carta</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Agrega, edita precios o activa/desactiva productos divididos por categoría.</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => {
+                  limpiarFormularioProd();
+                  setMostrarModalProd(true);
+                }}
+                className="bg-amber-900 hover:bg-slate-900 text-amber-100 font-bold px-4 py-2.5 rounded-xl transition shadow-md flex items-center justify-center gap-2 text-xs uppercase tracking-wider shrink-0"
+              >
+                <Plus className="w-4 h-4 text-amber-400" /> Nuevo Producto
+              </button>
+            </div>
+
+            {cargandoLista ? (
+              <div className="p-12 text-center text-xs font-bold text-amber-900 animate-pulse">
+                Cargando datos desde Supabase...
+              </div>
+            ) : productos.length === 0 ? (
+              <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center space-y-3">
+                <p className="text-sm font-bold text-slate-700">No hay productos en la base de datos.</p>
+                <button
+                  onClick={() => {
+                    limpiarFormularioProd();
+                    setMostrarModalProd(true);
+                  }}
+                  className="bg-amber-900 text-amber-100 text-xs font-bold px-4 py-2.5 rounded-xl uppercase tracking-wider"
+                >
+                  Agregar el primer producto
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-10">
+                {categorias.map((cat) => {
+                  const prodsDeCat = productos.filter((p) => p.categoria_id === cat.id);
+                  if (prodsDeCat.length === 0) return null;
+
+                  return (
+                    <div key={cat.id} className="space-y-4">
+                      <div className="flex items-center gap-3 border-b border-amber-900/15 pb-2">
+                        <span className="p-1.5 bg-amber-900 text-amber-100 rounded-lg text-xs font-bold uppercase tracking-wider">
+                          {cat.nombre}
+                        </span>
+                        <span className="text-slate-400 text-xs font-semibold">({prodsDeCat.length} ítems)</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                        {prodsDeCat.map((p) => (
+                          <div 
+                            key={p.id} 
+                            className={`bg-white border rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition flex flex-col justify-between relative ${
+                              !p.disponible ? 'opacity-60 bg-slate-50 border-slate-200' : 'border-amber-900/10'
+                            }`}
+                          >
+                            {p.etiqueta && (
+                              <span className="absolute top-2.5 right-2.5 z-10 bg-amber-900 text-amber-100 font-bold text-[9px] px-2.5 py-0.5 rounded-full uppercase shadow-xs">
+                                {p.etiqueta}
+                              </span>
+                            )}
+
+                            <div className="h-44 w-full bg-slate-100 relative overflow-hidden">
+                              <img src={p.imagen_url} alt={p.nombre} className="w-full h-full object-cover" />
+                              {!p.disponible && (
+                                <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center text-white font-bold text-xs uppercase tracking-wider">
+                                  Agotado / Deshabilitado
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="p-4 flex-1 flex flex-col justify-between">
+                              <div>
+                                <h3 className="font-serif font-bold text-slate-900 text-base leading-snug">{p.nombre}</h3>
+                                <p className="text-slate-500 text-xs mt-1 line-clamp-2 leading-relaxed">"{p.descripcion}"</p>
+                              </div>
+
+                              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                                <span className="font-serif font-black text-amber-950 text-base">{p.precio ? p.precio.toFixed(2) : '0.00'}€</span>
+
+                                <div className="flex items-center gap-1.5">
+                                  <button 
+                                    onClick={() => cambiarDisponibilidadRapida(p)}
+                                    title={p.disponible ? 'Ocultar producto' : 'Mostrar producto'}
+                                    className={`p-1.5 rounded-lg text-xs font-bold transition ${
+                                      p.disponible ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'bg-slate-200 text-slate-600'
+                                    }`}
+                                  >
+                                    {p.disponible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                                  </button>
+
+                                  <button 
+                                    onClick={() => abrirEditarProducto(p)}
+                                    className="p-1.5 bg-slate-100 hover:bg-amber-900 hover:text-white rounded-lg text-slate-600 transition"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+
+                                  <button 
+                                    onClick={() => eliminarProducto(p.id)}
+                                    className="p-1.5 bg-slate-100 hover:bg-rose-700 hover:text-white rounded-lg text-slate-600 transition"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {seccion === 'categorias' && (
+          <div className="max-w-4xl mx-auto space-y-6">
+            <div className="bg-white p-5 rounded-2xl border border-amber-900/10 shadow-xs">
+              <h2 className="font-serif font-bold text-xl text-slate-900">Categorías de la Carta</h2>
+              <p className="text-xs text-slate-500 mt-0.5">Organiza las pestañas de tu carta digital e impresa.</p>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-6">
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs h-fit">
+                <h3 className="font-serif font-bold text-sm text-slate-900 mb-3 flex items-center gap-2">
+                  <Plus className="w-4 h-4 text-amber-800" /> Nueva Categoría
+                </h3>
+
+                <form onSubmit={guardarCategoria} className="space-y-3 text-xs">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Nombre</label>
+                    <input 
+                      type="text"
+                      required
+                      value={nombreCat}
+                      onChange={(e) => setNombreCat(e.target.value)}
+                      placeholder="Ej. Vinos & Copas"
+                      className="w-full bg-[#faf7f2] border border-slate-300 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:border-amber-800"
+                    />
+                  </div>
+
+                  <button 
+                    type="submit"
+                    className="w-full bg-amber-900 hover:bg-slate-900 text-amber-100 font-bold py-2.5 rounded-xl transition text-xs uppercase tracking-wider"
+                  >
+                    Guardar Categoría
+                  </button>
+                </form>
+              </div>
+
+              <div className="md:col-span-2 space-y-2">
+                {categorias.map((c) => (
+                  <div key={c.id} className="bg-white border border-slate-200 rounded-xl p-3.5 flex justify-between items-center shadow-xs">
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-sm">{c.nombre}</h4>
+                      <span className="text-[10px] text-slate-400">Ruta: /{c.slug}</span>
+                    </div>
+
+                    <button 
+                      onClick={() => eliminarCategoria(c.id)}
+                      className="p-2 bg-slate-100 hover:bg-rose-700 hover:text-white rounded-lg text-slate-500 transition"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SECCIÓN 3: CONFIGURAR MARCA & IMÁGENES DEL LOCAL */}
+        {seccion === 'ajustes' && (
+          <div className="max-w-2xl mx-auto space-y-6">
+            <div className="bg-white p-5 rounded-2xl border border-amber-900/10 shadow-xs">
+              <h2 className="font-serif font-bold text-xl text-slate-900">Personalización de Marca & Espacios</h2>
+              <p className="text-xs text-slate-500 mt-0.5">Sube el logo oficial y la fotografía de tu cafetería/local.</p>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-6">
+              
+              {/* BLOQUE 1: LOGO */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-2">1. Logo Oficial</label>
+                <div className="flex items-center gap-4 p-4 bg-[#faf7f2] rounded-2xl border border-slate-200 mb-3">
+                  <img src={logoUrl} alt="Logo Izar" className="h-16 w-32 object-contain bg-white p-2 rounded-xl border border-slate-200 shadow-xs" />
+                  <div className="text-xs space-y-1">
+                    <p className="font-bold text-slate-800">Logo Oficial Izar Café Bar</p>
+                    <p className="text-slate-500 text-[11px]">Se muestra en la web pública, carta e impresiones.</p>
+                  </div>
+                </div>
+
+                <label className="flex bg-amber-900/10 hover:bg-amber-900/20 text-amber-900 font-bold px-4 py-3 rounded-xl border border-amber-900/20 cursor-pointer transition items-center justify-center gap-2 text-xs">
+                  <Upload className="w-4 h-4 text-amber-800" />
+                  Cambiar Logo Oficial
+                  <input type="file" accept="image/*" onChange={(e) => handleSubirImagen(e, 'logo')} className="hidden" />
+                </label>
+              </div>
+
+              <hr className="border-slate-200" />
+
+              {/* BLOQUE 2: FOTO DEL LOCAL / ESPACIOS */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-2">2. Foto del Espacio / Cafetería</label>
+                <div className="p-3 bg-[#faf7f2] rounded-2xl border border-slate-200 mb-3 space-y-2">
+                  <div className="h-40 w-full rounded-xl overflow-hidden border border-slate-200 relative">
+                    <img src={imagenLocalUrl} alt="Espacio Izar Café" className="w-full h-full object-cover" />
+                  </div>
+                  <p className="text-[11px] text-slate-500 text-center font-medium">Esta fotografía aparecerá en la Carta Física / PDF y en la Web Pública.</p>
+                </div>
+
+                <label className="flex bg-amber-900/10 hover:bg-amber-900/20 text-amber-900 font-bold px-4 py-3 rounded-xl border border-amber-900/20 cursor-pointer transition items-center justify-center gap-2 text-xs">
+                  <ImageIcon className="w-4 h-4 text-amber-800" />
+                  Subir Foto de tu Cafetería (Local)
+                  <input type="file" accept="image/*" onChange={(e) => handleSubirImagen(e, 'local')} className="hidden" />
+                </label>
+              </div>
+
+              <div className="text-slate-400 text-[11px] flex items-center gap-1.5 pt-1">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                <span>Las imágenes se comprimen automáticamente para no saturar tu espacio en Supabase.</span>
+              </div>
+
+              {guardadoAjustes && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-600" /> Ajustes guardados correctamente en Supabase.
+                </div>
+              )}
+
+              <button 
+                onClick={guardarConfiguracionMarca}
+                className="w-full bg-amber-900 hover:bg-slate-900 text-amber-100 font-bold py-3 rounded-xl transition text-xs uppercase tracking-wider"
+              >
+                Guardar Cambios
+              </button>
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* MODAL CREAR / EDITAR PRODUCTO */}
+      {mostrarModalProd && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 text-slate-900 max-w-lg w-full rounded-3xl p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button 
+              onClick={() => setMostrarModalProd(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-800 p-1 rounded-full"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h3 className="font-serif font-bold text-xl text-slate-900 mb-1">
+              {editandoProdId ? 'Editar Producto' : 'Nuevo Producto'}
+            </h3>
+            <p className="text-xs text-slate-500 mb-5">Ingresa los datos del plato o bebida.</p>
+
+            <form onSubmit={guardarProducto} className="space-y-4 text-xs">
+              {categorias.length > 0 && (
                 <div>
-                  <label className="block text-xs font-bold text-stone-400 uppercase mb-1">Categoría</label>
-                  <select
-                    value={formData.categoria_id}
-                    onChange={(e) => setFormData({ ...formData, categoria_id: e.target.value })}
-                    className="w-full bg-stone-900 border border-stone-800 rounded-xl px-4 py-2.5 text-stone-100 focus:outline-none focus:border-amber-500"
+                  <label className="block font-bold text-slate-700 mb-1">Categoría</label>
+                  <select 
+                    value={prodCategoria}
+                    onChange={(e) => setProdCategoria(e.target.value)}
+                    className="w-full bg-[#faf7f2] border border-slate-300 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:border-amber-800 font-medium"
                   >
                     {categorias.map((c) => (
                       <option key={c.id} value={c.id}>{c.nombre}</option>
                     ))}
                   </select>
                 </div>
+              )}
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Nombre del Plato / Bebida</label>
+                <input 
+                  type="text"
+                  required
+                  value={prodNombre}
+                  onChange={(e) => setProdNombre(e.target.value)}
+                  placeholder="Ej. Cheesecake de Frutos Rojos"
+                  className="w-full bg-[#faf7f2] border border-slate-300 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:border-amber-800 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Descripción</label>
+                <textarea 
+                  rows={2}
+                  value={prodDescripcion}
+                  onChange={(e) => setProdDescripcion(e.target.value)}
+                  placeholder="Ingredientes, preparación..."
+                  className="w-full bg-[#faf7f2] border border-slate-300 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:border-amber-800"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-stone-400 uppercase mb-1">Precio (€)</label>
-                  <input
-                    required
+                  <label className="block font-bold text-slate-700 mb-1">Precio (€)</label>
+                  <input 
                     type="number"
                     step="0.01"
-                    value={formData.precio}
-                    onChange={(e) => setFormData({ ...formData, precio: e.target.value })}
-                    className="w-full bg-stone-900 border border-stone-800 rounded-xl px-4 py-2.5 text-stone-100 focus:outline-none focus:border-amber-500"
+                    required
+                    value={prodPrecio}
+                    onChange={(e) => setProdPrecio(e.target.value)}
+                    placeholder="4.80"
+                    className="w-full bg-[#faf7f2] border border-slate-300 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:border-amber-800 font-bold text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Etiqueta (Opcional)</label>
+                  <input 
+                    type="text"
+                    value={prodEtiqueta}
+                    onChange={(e) => setProdEtiqueta(e.target.value)}
+                    placeholder="Recomendado, Especialidad"
+                    className="w-full bg-[#faf7f2] border border-slate-300 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:border-amber-800"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-stone-400 uppercase mb-1">URL de la Imagen</label>
-                <input
+              <div className="space-y-2">
+                <label className="block font-bold text-slate-700">Imagen del Producto</label>
+                
+                {prodImagen && (
+                  <div className="h-28 w-full rounded-xl overflow-hidden relative mb-2 border border-slate-200">
+                    <img src={prodImagen} alt="Previsualización" className="w-full h-full object-cover" />
+                    <button 
+                      type="button" 
+                      onClick={() => setProdImagen('')} 
+                      className="absolute top-2 right-2 bg-slate-900/80 text-white p-1 rounded-full text-xs"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                <label className="flex bg-amber-900/10 hover:bg-amber-900/20 text-amber-900 font-bold p-2.5 rounded-xl border border-amber-900/20 cursor-pointer text-center text-xs justify-center items-center gap-1.5">
+                  <Upload className="w-3.5 h-3.5 text-amber-800" />
+                  {procesandoImagen ? 'Comprimiendo...' : 'Subir imagen desde equipo'}
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={(e) => handleSubirImagen(e, 'producto')} 
+                    className="hidden" 
+                  />
+                </label>
+
+                <p className="text-[10px] text-slate-400">O pega una URL de Unsplash / Pexels:</p>
+                <input 
                   type="url"
-                  placeholder="https://..."
-                  value={formData.imagen_url}
-                  onChange={(e) => setFormData({ ...formData, imagen_url: e.target.value })}
-                  className="w-full bg-stone-900 border border-stone-800 rounded-xl px-4 py-2.5 text-stone-100 focus:outline-none focus:border-amber-500"
+                  value={prodImagen}
+                  onChange={(e) => setProdImagen(e.target.value)}
+                  placeholder="https://images.unsplash.com/..."
+                  className="w-full bg-[#faf7f2] border border-slate-300 rounded-xl px-3 py-2 text-slate-800 focus:outline-none text-[11px]"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-stone-400 uppercase mb-1">Descripción</label>
-                <textarea
-                  rows={3}
-                  value={formData.descripcion}
-                  onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-                  className="w-full bg-stone-900 border border-stone-800 rounded-xl px-4 py-2.5 text-stone-100 focus:outline-none focus:border-amber-500"
-                ></textarea>
+              <div className="flex items-center gap-6 pt-2">
+                <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-700">
+                  <input 
+                    type="checkbox"
+                    checked={prodDestacado}
+                    onChange={(e) => setProdDestacado(e.target.checked)}
+                    className="rounded text-amber-900"
+                  />
+                  Destacado
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-700">
+                  <input 
+                    type="checkbox"
+                    checked={prodDisponible}
+                    onChange={(e) => setProdDisponible(e.target.checked)}
+                    className="rounded text-amber-900"
+                  />
+                  Disponible
+                </label>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-stone-400 uppercase mb-1">Etiqueta (Opcional)</label>
-                <input
-                  type="text"
-                  placeholder="Ej: Recomendado, Sin Gluten, Especialidad"
-                  value={formData.etiqueta}
-                  onChange={(e) => setFormData({ ...formData, etiqueta: e.target.value })}
-                  className="w-full bg-stone-900 border border-stone-800 rounded-xl px-4 py-2.5 text-stone-100 focus:outline-none focus:border-amber-500"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setMostrarModal(false)}
-                  className="flex-1 bg-stone-900 hover:bg-stone-800 text-stone-300 font-bold py-3 rounded-xl border border-stone-800"
+              <div className="flex gap-3 pt-3">
+                <button 
+                  type="button" 
+                  onClick={() => setMostrarModalProd(false)}
+                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-2xl transition"
                 >
                   Cancelar
                 </button>
-                <button
+                <button 
                   type="submit"
-                  className="flex-1 bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold py-3 rounded-xl shadow-lg shadow-amber-600/20"
+                  className="flex-1 bg-amber-900 hover:bg-slate-900 text-amber-100 font-bold py-3 rounded-2xl transition shadow-md uppercase tracking-wider"
                 >
-                  Guardar
+                  {editandoProdId ? 'Guardar Cambios' : 'Crear Producto'}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
     </div>
   );
 }
