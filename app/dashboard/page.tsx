@@ -5,13 +5,15 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { 
   Utensils, FolderPlus, Settings, LogOut, Plus, Edit2, Trash2, 
-  ExternalLink, Sparkles, Upload, Check, X, Eye, EyeOff, AlertCircle, Printer, Image as ImageIcon
+  ExternalLink, Sparkles, Upload, Check, X, Eye, EyeOff, AlertCircle, Printer, Image as ImageIcon, FileText, ArrowUp, ArrowDown, MapPin, Clock 
 } from 'lucide-react';
 
 interface Categoria {
   id: string;
   nombre: string;
   slug: string;
+  nota?: string;
+  orden?: number;
 }
 
 interface Producto {
@@ -24,6 +26,7 @@ interface Producto {
   es_destacado: boolean;
   disponible: boolean;
   etiqueta?: string;
+  orden?: number;
 }
 
 export default function DashboardPage() {
@@ -50,11 +53,15 @@ export default function DashboardPage() {
   const [procesandoImagen, setProcesandoImagen] = useState(false);
 
   // Formulario Categoría
+  const [editandoCatId, setEditandoCatId] = useState<string | null>(null);
   const [nombreCat, setNombreCat] = useState('');
+  const [notaCat, setNotaCat] = useState('');
 
-  // Ajustes Marca & Espacios
+  // Ajustes Marca, Ubicación & Horarios
   const [logoUrl, setLogoUrl] = useState<string>("https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&q=80&w=400");
   const [imagenLocalUrl, setImagenLocalUrl] = useState<string>("https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&q=80&w=800");
+  const [direccion, setDireccion] = useState<string>('');
+  const [horarios, setHorarios] = useState<string>('');
   const [guardadoAjustes, setGuardadoAjustes] = useState(false);
 
   useEffect(() => {
@@ -65,7 +72,7 @@ export default function DashboardPage() {
   const cargarDatos = async () => {
     setCargandoLista(true);
     try {
-      const { data: prods } = await supabase.from('productos').select('*');
+      const { data: prods } = await supabase.from('productos').select('*').order('orden', { ascending: true });
       const { data: cats } = await supabase.from('categorias').select('*').order('orden', { ascending: true });
 
       if (prods) setProductos(prods);
@@ -82,9 +89,11 @@ export default function DashboardPage() {
 
   const cargarAjustes = async () => {
     try {
-      const { data } = await supabase.from('configuracion').select('logo_url, imagen_local_url').eq('id', 'empresa').single();
+      const { data } = await supabase.from('configuracion').select('logo_url, imagen_local_url, direccion, horarios').eq('id', 'empresa').single();
       if (data?.logo_url) setLogoUrl(data.logo_url);
       if (data?.imagen_local_url) setImagenLocalUrl(data.imagen_local_url);
+      if (data?.direccion) setDireccion(data.direccion);
+      if (data?.horarios) setHorarios(data.horarios);
     } catch (e) {
       console.log("No se pudo cargar la configuración de la base de datos.");
     }
@@ -99,6 +108,8 @@ export default function DashboardPage() {
           id: 'empresa', 
           logo_url: logoUrl, 
           imagen_local_url: imagenLocalUrl,
+          direccion: direccion,
+          horarios: horarios,
           updated_at: new Date().toISOString() 
         });
 
@@ -110,6 +121,59 @@ export default function DashboardPage() {
       }
     } catch (e: any) {
       alert("Ocurrió un error al guardar.");
+    }
+  };
+
+  const moverCategoria = async (index: number, direccion: 'arriba' | 'abajo') => {
+    const nuevasCategorias = [...categorias];
+    const objetivoIndex = direccion === 'arriba' ? index - 1 : index + 1;
+
+    if (objetivoIndex < 0 || objetivoIndex >= nuevasCategorias.length) return;
+
+    const temp = nuevasCategorias[index];
+    nuevasCategorias[index] = nuevasCategorias[objetivoIndex];
+    nuevasCategorias[objetivoIndex] = temp;
+
+    setCategorias(nuevasCategorias);
+
+    try {
+      const actualizaciones = nuevasCategorias.map((cat, idx) => 
+        supabase.from('categorias').update({ orden: idx }).eq('id', cat.id)
+      );
+      await Promise.all(actualizaciones);
+    } catch (err) {
+      console.error("Error actualizando el orden de las categorías:", err);
+      cargarDatos();
+    }
+  };
+
+  const moverProducto = async (prod: Producto, prodsDeCat: Producto[], index: number, direccion: 'arriba' | 'abajo') => {
+    const objetivoIndex = direccion === 'arriba' ? index - 1 : index + 1;
+    if (objetivoIndex < 0 || objetivoIndex >= prodsDeCat.length) return;
+
+    const copiaCat = [...prodsDeCat];
+    const temp = copiaCat[index];
+    copiaCat[index] = copiaCat[objetivoIndex];
+    copiaCat[objetivoIndex] = temp;
+
+    const reordenados = copiaCat.map((item, idx) => ({
+      ...item,
+      orden: idx
+    }));
+
+    setProductos((prevProductos) => {
+      const otrosProductos = prevProductos.filter((p) => p.categoria_id !== prod.categoria_id);
+      return [...otrosProductos, ...reordenados];
+    });
+
+    try {
+      const promesas = reordenados.map((p) =>
+        supabase.from('productos').update({ orden: p.orden }).eq('id', p.id)
+      );
+      await Promise.all(promesas);
+    } catch (err) {
+      console.error("Error al guardar el nuevo orden en Supabase:", err);
+      await cargarDatos();
     }
   };
 
@@ -186,6 +250,8 @@ export default function DashboardPage() {
     if (editandoProdId) {
       await supabase.from('productos').update(payload).eq('id', editandoProdId);
     } else {
+      const prodsEnCat = productos.filter((p) => p.categoria_id === prodCategoria);
+      payload.orden = prodsEnCat.length;
       await supabase.from('productos').insert([payload]);
     }
 
@@ -234,10 +300,38 @@ export default function DashboardPage() {
     if (!nombreCat.trim()) return;
 
     const slug = nombreCat.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
-    await supabase.from('categorias').insert([{ nombre: nombreCat, slug }]);
+    const payload = { 
+      nombre: nombreCat, 
+      slug, 
+      nota: notaCat.trim() || null 
+    };
 
+    try {
+      if (editandoCatId) {
+        const { error } = await supabase.from('categorias').update(payload).eq('id', editandoCatId);
+        if (error) throw error;
+      } else {
+        const nuevoOrden = categorias.length;
+        const { error } = await supabase.from('categorias').insert([{ ...payload, orden: nuevoOrden }]);
+        if (error) throw error;
+      }
+      limpiarFormularioCat();
+      await cargarDatos();
+    } catch (err: any) {
+      alert("Error al guardar la categoría: " + err.message);
+    }
+  };
+
+  const abrirEditarCategoria = (c: Categoria) => {
+    setEditandoCatId(c.id);
+    setNombreCat(c.nombre);
+    setNotaCat(c.nota || '');
+  };
+
+  const limpiarFormularioCat = () => {
+    setEditandoCatId(null);
     setNombreCat('');
-    await cargarDatos();
+    setNotaCat('');
   };
 
   const eliminarCategoria = async (id: string) => {
@@ -330,7 +424,7 @@ export default function DashboardPage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-amber-900/10 shadow-xs">
               <div>
                 <h2 className="font-serif font-bold text-xl text-slate-900">Gestión de la Carta</h2>
-                <p className="text-xs text-slate-500 mt-0.5">Agrega, edita precios o activa/desactiva productos divididos por categoría.</p>
+                <p className="text-xs text-slate-500 mt-0.5">Agrega, edita precios, reordena platos o activa/desactiva productos divididos por categoría.</p>
               </div>
 
               <button
@@ -364,7 +458,10 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-10">
                 {categorias.map((cat) => {
-                  const prodsDeCat = productos.filter((p) => p.categoria_id === cat.id);
+                  const prodsDeCat = productos
+                    .filter((p) => p.categoria_id === cat.id)
+                    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
+
                   if (prodsDeCat.length === 0) return null;
 
                   return (
@@ -377,7 +474,7 @@ export default function DashboardPage() {
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                        {prodsDeCat.map((p) => (
+                        {prodsDeCat.map((p, idxProd) => (
                           <div 
                             key={p.id} 
                             className={`bg-white border rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition flex flex-col justify-between relative ${
@@ -409,6 +506,27 @@ export default function DashboardPage() {
                                 <span className="font-serif font-black text-amber-950 text-base">{p.precio ? p.precio.toFixed(2) : '0.00'}€</span>
 
                                 <div className="flex items-center gap-1.5">
+                                  <div className="flex gap-0.5 mr-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                                    <button
+                                      type="button"
+                                      onClick={() => moverProducto(p, prodsDeCat, idxProd, 'arriba')}
+                                      disabled={idxProd === 0}
+                                      title="Mover arriba"
+                                      className="p-1 hover:bg-amber-900 hover:text-white rounded disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-slate-600 text-slate-600 transition cursor-pointer"
+                                    >
+                                      <ArrowUp className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => moverProducto(p, prodsDeCat, idxProd, 'abajo')}
+                                      disabled={idxProd === prodsDeCat.length - 1}
+                                      title="Mover abajo"
+                                      className="p-1 hover:bg-amber-900 hover:text-white rounded disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-slate-600 text-slate-600 transition cursor-pointer"
+                                    >
+                                      <ArrowDown className="w-3 h-3" />
+                                    </button>
+                                  </div>
+
                                   <button 
                                     onClick={() => cambiarDisponibilidadRapida(p)}
                                     title={p.disponible ? 'Ocultar producto' : 'Mostrar producto'}
@@ -438,6 +556,13 @@ export default function DashboardPage() {
                           </div>
                         ))}
                       </div>
+
+                      {cat.nota && (
+                        <div className="mt-3 px-3.5 py-2 bg-amber-950/5 rounded-lg border-l-2 border-amber-900/40 text-xs text-amber-950 italic font-medium">
+                          <strong className="not-italic font-bold text-amber-900 mr-1">Nota:</strong> 
+                          {cat.nota}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -450,13 +575,14 @@ export default function DashboardPage() {
           <div className="max-w-4xl mx-auto space-y-6">
             <div className="bg-white p-5 rounded-2xl border border-amber-900/10 shadow-xs">
               <h2 className="font-serif font-bold text-xl text-slate-900">Categorías de la Carta</h2>
-              <p className="text-xs text-slate-500 mt-0.5">Organiza las pestañas de tu carta digital e impresa.</p>
+              <p className="text-xs text-slate-500 mt-0.5">Organiza el orden de tus categorías, administra sus notas e información general.</p>
             </div>
 
             <div className="grid md:grid-cols-3 gap-6">
               <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs h-fit">
                 <h3 className="font-serif font-bold text-sm text-slate-900 mb-3 flex items-center gap-2">
-                  <Plus className="w-4 h-4 text-amber-800" /> Nueva Categoría
+                  {editandoCatId ? <Edit2 className="w-4 h-4 text-amber-800" /> : <Plus className="w-4 h-4 text-amber-800" />}
+                  {editandoCatId ? 'Editar Categoría' : 'Nueva Categoría'}
                 </h3>
 
                 <form onSubmit={guardarCategoria} className="space-y-3 text-xs">
@@ -472,29 +598,92 @@ export default function DashboardPage() {
                     />
                   </div>
 
-                  <button 
-                    type="submit"
-                    className="w-full bg-amber-900 hover:bg-slate-900 text-amber-100 font-bold py-2.5 rounded-xl transition text-xs uppercase tracking-wider"
-                  >
-                    Guardar Categoría
-                  </button>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1 flex items-center justify-between">
+                      <span>Nota al pie (Opcional)</span>
+                      <FileText className="w-3 h-3 text-amber-800" />
+                    </label>
+                    <textarea 
+                      rows={3}
+                      value={notaCat}
+                      onChange={(e) => setNotaCat(e.target.value)}
+                      placeholder="Ej. Añade: Café/ColaCao/Infusión."
+                      className="w-full bg-[#faf7f2] border border-slate-300 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:border-amber-800"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">Se mostrará al final de esta categoría en la web y PDF sin precio ni guiones.</p>
+                  </div>
+
+                  <div className="flex gap-2">
+                    {editandoCatId && (
+                      <button 
+                        type="button"
+                        onClick={limpiarFormularioCat}
+                        className="w-1/3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2.5 rounded-xl transition text-xs"
+                      >
+                        Cancelar
+                      </button>
+                    )}
+                    <button 
+                      type="submit"
+                      className="flex-1 bg-amber-900 hover:bg-slate-900 text-amber-100 font-bold py-2.5 rounded-xl transition text-xs uppercase tracking-wider"
+                    >
+                      {editandoCatId ? 'Guardar Cambios' : 'Guardar Categoría'}
+                    </button>
+                  </div>
                 </form>
               </div>
 
               <div className="md:col-span-2 space-y-2">
-                {categorias.map((c) => (
+                {categorias.map((c, index) => (
                   <div key={c.id} className="bg-white border border-slate-200 rounded-xl p-3.5 flex justify-between items-center shadow-xs">
                     <div>
                       <h4 className="font-bold text-slate-900 text-sm">{c.nombre}</h4>
-                      <span className="text-[10px] text-slate-400">Ruta: /{c.slug}</span>
+                      <span className="text-[10px] text-slate-400 block">Ruta: /{c.slug}</span>
+                      {c.nota && (
+                        <p className="text-[11px] text-amber-900 bg-amber-50 px-2 py-0.5 rounded-md mt-1 italic border border-amber-200/60 inline-block">
+                          Nota: "{c.nota}"
+                        </p>
+                      )}
                     </div>
 
-                    <button 
-                      onClick={() => eliminarCategoria(c.id)}
-                      className="p-2 bg-slate-100 hover:bg-rose-700 hover:text-white rounded-lg text-slate-500 transition"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex flex-col gap-0.5 mr-2">
+                        <button
+                          type="button"
+                          onClick={() => moverCategoria(index, 'arriba')}
+                          disabled={index === 0}
+                          title="Mover arriba"
+                          className="p-1 bg-slate-100 hover:bg-amber-900 hover:text-white rounded disabled:opacity-30 disabled:hover:bg-slate-100 disabled:hover:text-slate-400 text-slate-600 transition cursor-pointer"
+                        >
+                          <ArrowUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moverCategoria(index, 'abajo')}
+                          disabled={index === categorias.length - 1}
+                          title="Mover abajo"
+                          className="p-1 bg-slate-100 hover:bg-amber-900 hover:text-white rounded disabled:opacity-30 disabled:hover:bg-slate-100 disabled:hover:text-slate-400 text-slate-600 transition cursor-pointer"
+                        >
+                          <ArrowDown className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <button 
+                        onClick={() => abrirEditarCategoria(c)}
+                        className="p-2 bg-slate-100 hover:bg-amber-900 hover:text-white rounded-lg text-slate-500 transition"
+                        title="Editar categoría"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button 
+                        onClick={() => eliminarCategoria(c.id)}
+                        className="p-2 bg-slate-100 hover:bg-rose-700 hover:text-white rounded-lg text-slate-500 transition"
+                        title="Eliminar categoría"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -502,12 +691,12 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* SECCIÓN 3: CONFIGURAR MARCA & IMÁGENES DEL LOCAL */}
+        {/* SECCIÓN 3: CONFIGURAR MARCA, FOTOS, UBICACIÓN & HORARIOS */}
         {seccion === 'ajustes' && (
           <div className="max-w-2xl mx-auto space-y-6">
             <div className="bg-white p-5 rounded-2xl border border-amber-900/10 shadow-xs">
-              <h2 className="font-serif font-bold text-xl text-slate-900">Personalización de Marca & Espacios</h2>
-              <p className="text-xs text-slate-500 mt-0.5">Sube el logo oficial y la fotografía de tu cafetería/local.</p>
+              <h2 className="font-serif font-bold text-xl text-slate-900">Personalización de Marca & Información</h2>
+              <p className="text-xs text-slate-500 mt-0.5">Sube el logo oficial, la foto del local, dirección y horarios de atención.</p>
             </div>
 
             <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-6">
@@ -547,6 +736,42 @@ export default function DashboardPage() {
                   Subir Foto de tu Cafetería (Local)
                   <input type="file" accept="image/*" onChange={(e) => handleSubirImagen(e, 'local')} className="hidden" />
                 </label>
+              </div>
+
+              <hr className="border-slate-200" />
+
+              {/* BLOQUE 3: DIRECCIÓN DEL NEGOCIO */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-2 flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4 text-amber-800" />
+                  3. Dirección del Negocio
+                </label>
+                <input 
+                  type="text"
+                  value={direccion}
+                  onChange={(e) => setDireccion(e.target.value)}
+                  placeholder="Ej. Rúa San Andrés 12, A Coruña, España"
+                  className="w-full bg-[#faf7f2] border border-slate-300 rounded-xl px-3 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-amber-800"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">Ubicación del establecimiento visible para tus clientes.</p>
+              </div>
+
+              <hr className="border-slate-200" />
+
+              {/* BLOQUE 4: HORARIOS DE ATENCIÓN */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-2 flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-amber-800" />
+                  4. Horarios de Atención
+                </label>
+                <textarea 
+                  rows={3}
+                  value={horarios}
+                  onChange={(e) => setHorarios(e.target.value)}
+                  placeholder="Ej. Lunes a Viernes: 08:00 - 21:00&#10;Sábados y Domingos: 09:00 - 22:00"
+                  className="w-full bg-[#faf7f2] border border-slate-300 rounded-xl px-3 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-amber-800"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">Puedes redactar los días y horarios como prefieras.</p>
               </div>
 
               <div className="text-slate-400 text-[11px] flex items-center gap-1.5 pt-1">
