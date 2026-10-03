@@ -14,6 +14,7 @@ interface Categoria {
   slug: string;
   nota?: string;
   orden?: number;
+  tiene_raciones?: boolean;
 }
 
 interface Producto {
@@ -22,6 +23,9 @@ interface Producto {
   nombre: string;
   descripcion: string;
   precio: number;
+  precio_tapa?: number | null;
+  precio_media_racion?: number | null;
+  precio_racion?: number | null;
   imagen_url: string;
   es_destacado: boolean;
   disponible: boolean;
@@ -46,6 +50,8 @@ export default function DashboardPage() {
   const [prodNombre, setProdNombre] = useState('');
   const [prodDescripcion, setProdDescripcion] = useState('');
   const [prodPrecio, setProdPrecio] = useState('');
+  const [prodPrecioMediaRacion, setProdPrecioMediaRacion] = useState('');
+  const [prodPrecioRacion, setProdPrecioRacion] = useState('');
   const [prodImagen, setProdImagen] = useState('');
   const [prodEtiqueta, setProdEtiqueta] = useState('');
   const [prodDestacado, setProdDestacado] = useState(false);
@@ -56,6 +62,7 @@ export default function DashboardPage() {
   const [editandoCatId, setEditandoCatId] = useState<string | null>(null);
   const [nombreCat, setNombreCat] = useState('');
   const [notaCat, setNotaCat] = useState('');
+  const [tieneRacionesCat, setTieneRacionesCat] = useState(false);
 
   // Ajustes Marca, Ubicación & Horarios
   const [logoUrl, setLogoUrl] = useState<string>("https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&q=80&w=400");
@@ -231,14 +238,31 @@ export default function DashboardPage() {
     }
   };
 
+  const categoriaSeleccionadaObjeto = categorias.find((c) => c.id === prodCategoria);
+
+  const parsearPrecio = (val: string): number | null => {
+    if (!val || val.trim() === '') return null;
+    const limpio = val.replace(',', '.').trim();
+    const num = parseFloat(limpio);
+    return isNaN(num) ? null : num;
+  };
+
   const guardarProducto = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!prodNombre.trim() || !prodPrecio) return;
+    if (!prodNombre.trim()) return;
+
+    const esRacionCat = Boolean(categoriaSeleccionadaObjeto?.tiene_raciones);
+    const numPrecioBase = parsearPrecio(prodPrecio) ?? 0;
+    const numMediaRacion = parsearPrecio(prodPrecioMediaRacion);
+    const numRacion = parsearPrecio(prodPrecioRacion);
 
     const payload: any = {
       nombre: prodNombre,
       descripcion: prodDescripcion,
-      precio: parseFloat(prodPrecio),
+      precio: numPrecioBase,
+      precio_tapa: esRacionCat ? numPrecioBase : null,
+      precio_media_racion: esRacionCat ? numMediaRacion : null,
+      precio_racion: esRacionCat ? numRacion : null,
       imagen_url: prodImagen || 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&q=80&w=600',
       es_destacado: prodDestacado,
       disponible: prodDisponible,
@@ -247,17 +271,41 @@ export default function DashboardPage() {
 
     if (prodCategoria) payload.categoria_id = prodCategoria;
 
-    if (editandoProdId) {
-      await supabase.from('productos').update(payload).eq('id', editandoProdId);
-    } else {
-      const prodsEnCat = productos.filter((p) => p.categoria_id === prodCategoria);
-      payload.orden = prodsEnCat.length;
-      await supabase.from('productos').insert([payload]);
-    }
+    try {
+      if (editandoProdId) {
+        const { data, error } = await supabase
+          .from('productos')
+          .update(payload)
+          .eq('id', editandoProdId)
+          .select();
 
-    limpiarFormularioProd();
-    setMostrarModalProd(false);
-    await cargarDatos();
+        if (error) {
+          console.error("Error al actualizar producto:", error);
+          alert("Error de Supabase al actualizar producto: " + error.message);
+          return;
+        }
+
+        if (!data || data.length === 0) {
+          alert("Atención: No se pudo actualizar el producto. Revisa los permisos RLS en la tabla 'productos' en Supabase.");
+          return;
+        }
+      } else {
+        const prodsEnCat = productos.filter((p) => p.categoria_id === prodCategoria);
+        payload.orden = prodsEnCat.length;
+        const { data, error } = await supabase.from('productos').insert([payload]).select();
+        
+        if (error) {
+          alert("Error al insertar producto: " + error.message);
+          return;
+        }
+      }
+
+      limpiarFormularioProd();
+      setMostrarModalProd(false);
+      await cargarDatos();
+    } catch (err: any) {
+      alert("Error al guardar el producto: " + err.message);
+    }
   };
 
   const abrirEditarProducto = (p: Producto) => {
@@ -265,7 +313,9 @@ export default function DashboardPage() {
     setProdCategoria(p.categoria_id || '');
     setProdNombre(p.nombre);
     setProdDescripcion(p.descripcion || '');
-    setProdPrecio(p.precio.toString());
+    setProdPrecio(p.precio !== undefined && p.precio !== null ? p.precio.toString() : '');
+    setProdPrecioMediaRacion(p.precio_media_racion !== null && p.precio_media_racion !== undefined ? p.precio_media_racion.toString() : '');
+    setProdPrecioRacion(p.precio_racion !== null && p.precio_racion !== undefined ? p.precio_racion.toString() : '');
     setProdImagen(p.imagen_url || '');
     setProdEtiqueta(p.etiqueta || '');
     setProdDestacado(p.es_destacado);
@@ -289,6 +339,8 @@ export default function DashboardPage() {
     setProdNombre('');
     setProdDescripcion('');
     setProdPrecio('');
+    setProdPrecioMediaRacion('');
+    setProdPrecioRacion('');
     setProdImagen('');
     setProdEtiqueta('');
     setProdDestacado(false);
@@ -303,18 +355,37 @@ export default function DashboardPage() {
     const payload = { 
       nombre: nombreCat, 
       slug, 
-      nota: notaCat.trim() || null 
+      nota: notaCat.trim() || null,
+      tiene_raciones: Boolean(tieneRacionesCat)
     };
 
     try {
       if (editandoCatId) {
-        const { error } = await supabase.from('categorias').update(payload).eq('id', editandoCatId);
-        if (error) throw error;
+        const { data, error } = await supabase
+          .from('categorias')
+          .update(payload)
+          .eq('id', editandoCatId)
+          .select();
+
+        if (error) {
+          console.error("Error al actualizar categoría:", error);
+          alert("Error de Supabase: " + error.message);
+          return;
+        }
+
+        if (!data || data.length === 0) {
+          alert("Atención: No se guardaron los cambios. Revisa los permisos RLS en la tabla 'categorias' en Supabase.");
+          return;
+        }
       } else {
         const nuevoOrden = categorias.length;
-        const { error } = await supabase.from('categorias').insert([{ ...payload, orden: nuevoOrden }]);
+        const { error } = await supabase
+          .from('categorias')
+          .insert([{ ...payload, orden: nuevoOrden }]);
+
         if (error) throw error;
       }
+
       limpiarFormularioCat();
       await cargarDatos();
     } catch (err: any) {
@@ -326,12 +397,14 @@ export default function DashboardPage() {
     setEditandoCatId(c.id);
     setNombreCat(c.nombre);
     setNotaCat(c.nota || '');
+    setTieneRacionesCat(Boolean(c.tiene_raciones));
   };
 
   const limpiarFormularioCat = () => {
     setEditandoCatId(null);
     setNombreCat('');
     setNotaCat('');
+    setTieneRacionesCat(false);
   };
 
   const eliminarCategoria = async (id: string) => {
@@ -341,9 +414,9 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#faf7f2] flex flex-col md:flex-row font-sans text-slate-800">
+    <div className="min-h-screen bg-[#faf7f2] flex flex-col md:flex-row font-sans text-slate-800 overflow-x-hidden">
       
-      {/* SIDEBAR ÚNICO */}
+      {/* SIDEBAR ÚNICO Y UNIFICADO */}
       <aside className="w-full md:w-64 bg-amber-950 text-amber-100 p-5 flex flex-col justify-between shrink-0 shadow-2xl z-20">
         <div>
           <div className="flex items-center gap-3 mb-8 pb-4 border-b border-amber-800/40">
@@ -417,8 +490,8 @@ export default function DashboardPage() {
         </div>
       </aside>
 
-      {/* ÁREA DE CONTENIDO */}
-      <main className="flex-1 p-4 sm:p-8 overflow-y-auto">
+      {/* ÁREA DE CONTENIDO PRINCIPAL */}
+      <main className="flex-1 p-4 sm:p-8 overflow-y-auto max-w-full">
         {seccion === 'productos' && (
           <div className="max-w-6xl mx-auto space-y-8">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-amber-900/10 shadow-xs">
@@ -432,7 +505,7 @@ export default function DashboardPage() {
                   limpiarFormularioProd();
                   setMostrarModalProd(true);
                 }}
-                className="bg-amber-900 hover:bg-slate-900 text-amber-100 font-bold px-4 py-2.5 rounded-xl transition shadow-md flex items-center justify-center gap-2 text-xs uppercase tracking-wider shrink-0"
+                className="bg-amber-900 hover:bg-slate-900 text-amber-100 font-bold px-4 py-2.5 rounded-xl transition shadow-md flex items-center justify-center gap-2 text-xs uppercase tracking-wider shrink-0 cursor-pointer"
               >
                 <Plus className="w-4 h-4 text-amber-400" /> Nuevo Producto
               </button>
@@ -450,7 +523,7 @@ export default function DashboardPage() {
                     limpiarFormularioProd();
                     setMostrarModalProd(true);
                   }}
-                  className="bg-amber-900 text-amber-100 text-xs font-bold px-4 py-2.5 rounded-xl uppercase tracking-wider"
+                  className="bg-amber-900 text-amber-100 text-xs font-bold px-4 py-2.5 rounded-xl uppercase tracking-wider cursor-pointer"
                 >
                   Agregar el primer producto
                 </button>
@@ -471,6 +544,11 @@ export default function DashboardPage() {
                           {cat.nombre}
                         </span>
                         <span className="text-slate-400 text-xs font-semibold">({prodsDeCat.length} ítems)</span>
+                        {cat.tiene_raciones && (
+                          <span className="bg-amber-100 text-amber-900 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-300">
+                            Modo Raciones / Tapas
+                          </span>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -498,14 +576,32 @@ export default function DashboardPage() {
 
                             <div className="p-4 flex-1 flex flex-col justify-between">
                               <div>
-                                <h3 className="font-serif font-bold text-slate-900 text-base leading-snug">{p.nombre}</h3>
+                                <h3 className="font-serif font-bold text-slate-900 text-base leading-snug break-words">{p.nombre}</h3>
                                 <p className="text-slate-500 text-xs mt-1 line-clamp-2 leading-relaxed">"{p.descripcion}"</p>
                               </div>
 
-                              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                                <span className="font-serif font-black text-amber-950 text-base">{p.precio ? p.precio.toFixed(2) : '0.00'}€</span>
+                              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                                <div className="flex flex-col min-w-0">
+                                  {cat.tiene_raciones ? (
+                                    <div className="text-[11px] font-bold text-amber-950 space-y-0.5">
+                                      {p.precio !== undefined && p.precio !== null && p.precio > 0 && (
+                                        <div>Tapa: <span className="font-black">{p.precio.toFixed(2)}€</span></div>
+                                      )}
+                                      {p.precio_media_racion !== null && p.precio_media_racion !== undefined && p.precio_media_racion > 0 && (
+                                        <div>1/2 Ración: <span className="font-black">{p.precio_media_racion.toFixed(2)}€</span></div>
+                                      )}
+                                      {p.precio_racion !== null && p.precio_racion !== undefined && p.precio_racion > 0 && (
+                                        <div>Ración: <span className="font-black">{p.precio_racion.toFixed(2)}€</span></div>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="font-serif font-black text-amber-950 text-base">
+                                      {p.precio ? p.precio.toFixed(2) : '0.00'}€
+                                    </span>
+                                  )}
+                                </div>
 
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-1.5 shrink-0">
                                   <div className="flex gap-0.5 mr-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
                                     <button
                                       type="button"
@@ -530,7 +626,7 @@ export default function DashboardPage() {
                                   <button 
                                     onClick={() => cambiarDisponibilidadRapida(p)}
                                     title={p.disponible ? 'Ocultar producto' : 'Mostrar producto'}
-                                    className={`p-1.5 rounded-lg text-xs font-bold transition ${
+                                    className={`p-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                                       p.disponible ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'bg-slate-200 text-slate-600'
                                     }`}
                                   >
@@ -539,14 +635,14 @@ export default function DashboardPage() {
 
                                   <button 
                                     onClick={() => abrirEditarProducto(p)}
-                                    className="p-1.5 bg-slate-100 hover:bg-amber-900 hover:text-white rounded-lg text-slate-600 transition"
+                                    className="p-1.5 bg-slate-100 hover:bg-amber-900 hover:text-white rounded-lg text-slate-600 transition cursor-pointer"
                                   >
                                     <Edit2 className="w-3.5 h-3.5" />
                                   </button>
 
                                   <button 
                                     onClick={() => eliminarProducto(p.id)}
-                                    className="p-1.5 bg-slate-100 hover:bg-rose-700 hover:text-white rounded-lg text-slate-600 transition"
+                                    className="p-1.5 bg-slate-100 hover:bg-rose-700 hover:text-white rounded-lg text-slate-600 transition cursor-pointer"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
@@ -593,7 +689,7 @@ export default function DashboardPage() {
                       required
                       value={nombreCat}
                       onChange={(e) => setNombreCat(e.target.value)}
-                      placeholder="Ej. Vinos & Copas"
+                      placeholder="Ej. Tapas & Raciones"
                       className="w-full bg-[#faf7f2] border border-slate-300 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:border-amber-800"
                     />
                   </div>
@@ -613,19 +709,32 @@ export default function DashboardPage() {
                     <p className="text-[10px] text-slate-400 mt-1">Se mostrará al final de esta categoría en la web y PDF sin precio ni guiones.</p>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="pt-2 border-t border-slate-100">
+                    <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-800">
+                      <input 
+                        type="checkbox"
+                        checked={tieneRacionesCat}
+                        onChange={(e) => setTieneRacionesCat(e.target.checked)}
+                        className="rounded text-amber-900 w-4 h-4"
+                      />
+                      Activar Precios de Tapas / Raciones
+                    </label>
+                    <p className="text-[10px] text-slate-400 mt-1 pl-6">Al activar este check, los productos agregados a esta categoría tendrán el precio original como Tapa y opción de agregar Media y Ración entera.</p>
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
                     {editandoCatId && (
                       <button 
                         type="button"
                         onClick={limpiarFormularioCat}
-                        className="w-1/3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2.5 rounded-xl transition text-xs"
+                        className="w-1/3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2.5 rounded-xl transition text-xs cursor-pointer"
                       >
                         Cancelar
                       </button>
                     )}
                     <button 
                       type="submit"
-                      className="flex-1 bg-amber-900 hover:bg-slate-900 text-amber-100 font-bold py-2.5 rounded-xl transition text-xs uppercase tracking-wider"
+                      className="flex-1 bg-amber-900 hover:bg-slate-900 text-amber-100 font-bold py-2.5 rounded-xl transition text-xs uppercase tracking-wider cursor-pointer"
                     >
                       {editandoCatId ? 'Guardar Cambios' : 'Guardar Categoría'}
                     </button>
@@ -637,7 +746,14 @@ export default function DashboardPage() {
                 {categorias.map((c, index) => (
                   <div key={c.id} className="bg-white border border-slate-200 rounded-xl p-3.5 flex justify-between items-center shadow-xs">
                     <div>
-                      <h4 className="font-bold text-slate-900 text-sm">{c.nombre}</h4>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-slate-900 text-sm">{c.nombre}</h4>
+                        {c.tiene_raciones && (
+                          <span className="text-[9px] bg-amber-100 text-amber-900 font-bold px-2 py-0.5 rounded-full border border-amber-300">
+                            Tapas / Raciones
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[10px] text-slate-400 block">Ruta: /{c.slug}</span>
                       {c.nota && (
                         <p className="text-[11px] text-amber-900 bg-amber-50 px-2 py-0.5 rounded-md mt-1 italic border border-amber-200/60 inline-block">
@@ -670,7 +786,7 @@ export default function DashboardPage() {
 
                       <button 
                         onClick={() => abrirEditarCategoria(c)}
-                        className="p-2 bg-slate-100 hover:bg-amber-900 hover:text-white rounded-lg text-slate-500 transition"
+                        className="p-2 bg-slate-100 hover:bg-amber-900 hover:text-white rounded-lg text-slate-500 transition cursor-pointer"
                         title="Editar categoría"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
@@ -678,7 +794,7 @@ export default function DashboardPage() {
 
                       <button 
                         onClick={() => eliminarCategoria(c.id)}
-                        className="p-2 bg-slate-100 hover:bg-rose-700 hover:text-white rounded-lg text-slate-500 transition"
+                        className="p-2 bg-slate-100 hover:bg-rose-700 hover:text-white rounded-lg text-slate-500 transition cursor-pointer"
                         title="Eliminar categoría"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -691,7 +807,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* SECCIÓN 3: CONFIGURAR MARCA, FOTOS, UBICACIÓN & HORARIOS */}
         {seccion === 'ajustes' && (
           <div className="max-w-2xl mx-auto space-y-6">
             <div className="bg-white p-5 rounded-2xl border border-amber-900/10 shadow-xs">
@@ -787,7 +902,7 @@ export default function DashboardPage() {
 
               <button 
                 onClick={guardarConfiguracionMarca}
-                className="w-full bg-amber-900 hover:bg-slate-900 text-amber-100 font-bold py-3 rounded-xl transition text-xs uppercase tracking-wider"
+                className="w-full bg-amber-900 hover:bg-slate-900 text-amber-100 font-bold py-3 rounded-xl transition text-xs uppercase tracking-wider cursor-pointer"
               >
                 Guardar Cambios
               </button>
@@ -798,11 +913,11 @@ export default function DashboardPage() {
 
       {/* MODAL CREAR / EDITAR PRODUCTO */}
       {mostrarModalProd && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 text-slate-900 max-w-lg w-full rounded-3xl p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white border border-slate-200 text-slate-900 max-w-lg w-full rounded-3xl p-6 shadow-2xl relative my-auto max-h-[90vh] overflow-y-auto">
             <button 
               onClick={() => setMostrarModalProd(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-800 p-1 rounded-full"
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-800 p-1 rounded-full cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -835,7 +950,7 @@ export default function DashboardPage() {
                   required
                   value={prodNombre}
                   onChange={(e) => setProdNombre(e.target.value)}
-                  placeholder="Ej. Cheesecake de Frutos Rojos"
+                  placeholder="Ej. Calamares a la Romana"
                   className="w-full bg-[#faf7f2] border border-slate-300 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:border-amber-800 font-medium"
                 />
               </div>
@@ -851,20 +966,72 @@ export default function DashboardPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Precio (€)</label>
-                  <input 
-                    type="number"
-                    step="0.01"
-                    required
-                    value={prodPrecio}
-                    onChange={(e) => setProdPrecio(e.target.value)}
-                    placeholder="4.80"
-                    className="w-full bg-[#faf7f2] border border-slate-300 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:border-amber-800 font-bold text-sm"
-                  />
+              {categoriaSeleccionadaObjeto?.tiene_raciones ? (
+                <div className="space-y-2 p-3 bg-amber-50 rounded-2xl border border-amber-200/80">
+                  <span className="block font-bold text-amber-900 text-xs uppercase mb-1">Precios por Ración (€)</span>
+                  <p className="text-[10px] text-slate-500 mb-2">El precio de la Tapa equivale al precio principal. Si dejas alguno en blanco, se ocultará.</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Precio Tapa (€)</label>
+                      <input 
+                        type="text"
+                        required
+                        value={prodPrecio}
+                        onChange={(e) => setProdPrecio(e.target.value)}
+                        placeholder="3.50"
+                        className="w-full bg-white border border-slate-300 rounded-xl px-2.5 py-2 text-slate-800 focus:outline-none focus:border-amber-800 font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">1/2 Ración (€)</label>
+                      <input 
+                        type="text"
+                        value={prodPrecioMediaRacion}
+                        onChange={(e) => setProdPrecioMediaRacion(e.target.value)}
+                        placeholder="Opcional"
+                        className="w-full bg-white border border-slate-300 rounded-xl px-2.5 py-2 text-slate-800 focus:outline-none focus:border-amber-800 font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Ración (€)</label>
+                      <input 
+                        type="text"
+                        value={prodPrecioRacion}
+                        onChange={(e) => setProdPrecioRacion(e.target.value)}
+                        placeholder="Opcional"
+                        className="w-full bg-white border border-slate-300 rounded-xl px-2.5 py-2 text-slate-800 focus:outline-none focus:border-amber-800 font-bold"
+                      />
+                    </div>
+                  </div>
                 </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Precio (€)</label>
+                    <input 
+                      type="text"
+                      required
+                      value={prodPrecio}
+                      onChange={(e) => setProdPrecio(e.target.value)}
+                      placeholder="4.80"
+                      className="w-full bg-[#faf7f2] border border-slate-300 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:border-amber-800 font-bold text-sm"
+                    />
+                  </div>
 
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Etiqueta (Opcional)</label>
+                    <input 
+                      type="text"
+                      value={prodEtiqueta}
+                      onChange={(e) => setProdEtiqueta(e.target.value)}
+                      placeholder="Recomendado, Especialidad"
+                      className="w-full bg-[#faf7f2] border border-slate-300 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:border-amber-800"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {categoriaSeleccionadaObjeto?.tiene_raciones && (
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Etiqueta (Opcional)</label>
                   <input 
@@ -875,7 +1042,7 @@ export default function DashboardPage() {
                     className="w-full bg-[#faf7f2] border border-slate-300 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:border-amber-800"
                   />
                 </div>
-              </div>
+              )}
 
               <div className="space-y-2">
                 <label className="block font-bold text-slate-700">Imagen del Producto</label>
@@ -886,7 +1053,7 @@ export default function DashboardPage() {
                     <button 
                       type="button" 
                       onClick={() => setProdImagen('')} 
-                      className="absolute top-2 right-2 bg-slate-900/80 text-white p-1 rounded-full text-xs"
+                      className="absolute top-2 right-2 bg-slate-900/80 text-white p-1 rounded-full text-xs cursor-pointer"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -940,13 +1107,13 @@ export default function DashboardPage() {
                 <button 
                   type="button" 
                   onClick={() => setMostrarModalProd(false)}
-                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-2xl transition"
+                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-2xl transition cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button 
                   type="submit"
-                  className="flex-1 bg-amber-900 hover:bg-slate-900 text-amber-100 font-bold py-3 rounded-2xl transition shadow-md uppercase tracking-wider"
+                  className="flex-1 bg-amber-900 hover:bg-slate-900 text-amber-100 font-bold py-3 rounded-2xl transition shadow-md uppercase tracking-wider cursor-pointer"
                 >
                   {editandoProdId ? 'Guardar Cambios' : 'Crear Producto'}
                 </button>
