@@ -42,7 +42,7 @@ interface Servicio {
 }
 
 // =========================================================================
-// DATOS OFICIALES DE IZAR CAFÉ BAR (EXTRAÍDOS DE CARTA IZAR 3.PDF)
+// DATOS OFICIALES DE IZAR CAFÉ BAR
 // =========================================================================
 const LOGO_FALLBACK = "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&q=80&w=400";
 
@@ -58,7 +58,6 @@ const CATEGORIAS_OFICIALES: Categoria[] = [
 ];
 
 const PRODUCTOS_OFICIALES: Producto[] = [
-  // DESAYUNOS
   {
     id: 'prod-1',
     categoria_id: 'cat-desayunos',
@@ -78,8 +77,6 @@ const PRODUCTOS_OFICIALES: Producto[] = [
     imagen_url: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&q=80&w=600',
     es_destacado: false
   },
-
-  // BRUNCH
   {
     id: 'prod-5',
     categoria_id: 'cat-brunch',
@@ -100,8 +97,6 @@ const PRODUCTOS_OFICIALES: Producto[] = [
     es_destacado: true,
     etiqueta: 'Muy Pedido'
   },
-
-  // TAPAS
   {
     id: 'prod-9',
     categoria_id: 'cat-tapas',
@@ -135,8 +130,6 @@ const PRODUCTOS_OFICIALES: Producto[] = [
     es_destacado: true,
     etiqueta: 'Ración Estrella'
   },
-
-  // VINOS Y VERMUT
   {
     id: 'prod-17',
     categoria_id: 'cat-vinos',
@@ -167,8 +160,6 @@ const PRODUCTOS_OFICIALES: Producto[] = [
     es_destacado: true,
     etiqueta: 'Aperitivo'
   },
-
-  // LICORES Y COPAS
   {
     id: 'prod-20',
     categoria_id: 'cat-licores',
@@ -208,7 +199,6 @@ const PRODUCTOS_OFICIALES: Producto[] = [
   }
 ];
 
-// LO MÁS PEDIDO (SELECCIÓN DESAYUNOS, BRUNCH Y TAPAS)
 const PRODUCTOS_MAS_PEDIDOS = [
   {
     nombre: "Tostada Pan Cristal",
@@ -260,7 +250,6 @@ const PRODUCTOS_MAS_PEDIDOS = [
   }
 ];
 
-// BODEGA & LICORES COMPLETA DE CARTA
 const BODEGA_Y_LICORES = [
   {
     nombre: "Ponte da Boga 1988 Mencía",
@@ -369,6 +358,9 @@ export default function Home() {
   const [categoriaActivaScroll, setCategoriaActivaScroll] = useState<string>(CATEGORIAS_OFICIALES[0].id);
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
 
+  // Detector de pantalla móvil para carruseles
+  const [esMovil, setEsMovil] = useState<boolean>(false);
+
   // Estados para Carruseles Automáticos
   const [paginaComida, setPaginaComida] = useState<number>(0);
   const [paginaBodega, setPaginaBodega] = useState<number>(0);
@@ -381,6 +373,16 @@ export default function Home() {
   const [cargandoLogin, setCargandoLogin] = useState<boolean>(false);
 
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // Detectar ancho de pantalla para ajustar el tamaño del bloque del carrusel
+  useEffect(() => {
+    const revisarAncho = () => {
+      setEsMovil(window.innerWidth < 768);
+    };
+    revisarAncho();
+    window.addEventListener('resize', revisarAncho);
+    return () => window.removeEventListener('resize', revisarAncho);
+  }, []);
 
   // Carga inicial Supabase
   useEffect(() => {
@@ -405,23 +407,25 @@ export default function Home() {
     cargarDatos();
   }, []);
 
-  // Intervalo para Carrusel "Lo Más Pedido"
+  // Intervalo Carrusel "Lo Más Pedido"
   useEffect(() => {
-    const totalPaginasComida = Math.ceil(PRODUCTOS_MAS_PEDIDOS.length / 3);
+    const itemsPorPagina = esMovil ? 1 : 3;
+    const totalPaginas = Math.ceil(PRODUCTOS_MAS_PEDIDOS.length / itemsPorPagina);
     const interval = setInterval(() => {
-      setPaginaComida((prev) => (prev + 1) % totalPaginasComida);
+      setPaginaComida((prev) => (prev + 1) % totalPaginas);
     }, 4000);
     return () => clearInterval(interval);
-  }, []);
+  }, [esMovil]);
 
-  // Intervalo para Carrusel "Bodega & Licores"
+  // Intervalo Carrusel "Bodega & Licores"
   useEffect(() => {
-    const totalPaginasBodega = Math.ceil(BODEGA_Y_LICORES.length / 3);
+    const itemsPorPagina = esMovil ? 1 : 3;
+    const totalPaginas = Math.ceil(BODEGA_Y_LICORES.length / itemsPorPagina);
     const interval = setInterval(() => {
-      setPaginaBodega((prev) => (prev + 1) % totalPaginasBodega);
+      setPaginaBodega((prev) => (prev + 1) % totalPaginas);
     }, 4000);
     return () => clearInterval(interval);
-  }, []);
+  }, [esMovil]);
 
   const scrollToCategory = (catId: string) => {
     setCategoriaActivaScroll(catId);
@@ -472,8 +476,10 @@ export default function Home() {
     }
   };
 
-  const itemsComidaVisibles = PRODUCTOS_MAS_PEDIDOS.slice(paginaComida * 3, paginaComida * 3 + 3);
-  const itemsBodegaVisibles = BODEGA_Y_LICORES.slice(paginaBodega * 3, paginaBodega * 3 + 3);
+  // Ítems dinámicos según pantalla
+  const pasoCarrusel = esMovil ? 1 : 3;
+  const itemsComidaVisibles = PRODUCTOS_MAS_PEDIDOS.slice(paginaComida * pasoCarrusel, paginaComida * pasoCarrusel + pasoCarrusel);
+  const itemsBodegaVisibles = BODEGA_Y_LICORES.slice(paginaBodega * pasoCarrusel, paginaBodega * pasoCarrusel + pasoCarrusel);
 
   return (
     <div className="min-h-screen bg-[#F3EFEA] text-[#1C1917] font-sans antialiased selection:bg-[#1C1917] selection:text-[#F3EFEA]">
@@ -574,7 +580,7 @@ export default function Home() {
       {vistaActual === 'web' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
 
-          {/* HEADER RESPONSIVO */}
+          {/* HEADER */}
           <header className="sticky top-0 z-50 bg-[#F3EFEA]/95 backdrop-blur-md border-b border-black/10">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
               <div className="flex items-center gap-2.5 cursor-pointer group" onClick={() => setVistaActual('landing')}>
@@ -608,18 +614,18 @@ export default function Home() {
             </div>
           </header>
 
-          {/* HERO CON VÍDEO CON RESPONSIVIDAD MEJORADA */}
-          <section id="inicio" className="relative min-h-[80vh] sm:min-h-[85vh] flex items-center overflow-hidden bg-black text-[#F3EFEA] px-4 sm:px-6">
+          {/* HERO CON VÍDEO EN ENCUADRE COMPLETO */}
+          <section id="inicio" className="relative min-h-[90vh] flex items-center justify-center overflow-hidden bg-black text-[#F3EFEA] px-4 sm:px-6 py-12 sm:py-20">
             <video
               autoPlay
               loop
               muted
               playsInline
-              className="absolute inset-0 w-full h-full object-cover opacity-60 filter brightness-75 scale-105"
+              className="absolute inset-0 w-full h-full object-cover opacity-60 filter brightness-75"
               src="https://framerusercontent.com/assets/XJhAHxuDXKKrpWMFb5fuOB0jvoA.mp4"
             />
 
-            <div className="relative z-10 max-w-7xl mx-auto w-full grid md:grid-cols-12 gap-6 sm:gap-8 items-center py-12 sm:py-16">
+            <div className="relative z-10 max-w-7xl mx-auto w-full grid md:grid-cols-12 gap-6 sm:gap-8 items-center">
               <div className="md:col-span-8 lg:col-span-7 space-y-4 sm:space-y-6 text-left">
 
                 <div className="inline-flex items-center gap-2 bg-[#1C1917]/85 backdrop-blur-md border border-white/20 px-3.5 py-1.5 rounded-full text-[10px] sm:text-xs font-semibold tracking-wide">
@@ -643,7 +649,7 @@ export default function Home() {
                 <div className="flex flex-wrap items-center gap-3 pt-2">
                   <button
                     onClick={() => setVistaActual('menu')}
-                    className="bg-[#F3EFEA] text-[#1C1917] hover:bg-white font-bold text-[10px] sm:text-xs uppercase tracking-widest px-6 sm:px-8 py-3 sm:py-4 rounded-full transition shadow-xl flex items-center gap-2"
+                    className="bg-[#F3EFEA] text-[#1C1917] hover:bg-white font-bold text-[10px] sm:text-xs uppercase tracking-widest px-6 sm:px-8 py-3.5 sm:py-4 rounded-full transition shadow-xl flex items-center gap-2"
                   >
                     <BookOpen className="w-3.5 h-3.5 text-[#3F4E3E]" />
                     <span>Ver Carta Digital</span>
@@ -651,7 +657,7 @@ export default function Home() {
                   </button>
                   <a
                     href="#bodega"
-                    className="bg-black/40 backdrop-blur-md hover:bg-black/60 text-white border border-white/30 font-bold text-[10px] sm:text-xs uppercase tracking-widest px-6 sm:px-8 py-3 sm:py-4 rounded-full transition flex items-center gap-2"
+                    className="bg-black/40 backdrop-blur-md hover:bg-black/60 text-white border border-white/30 font-bold text-[10px] sm:text-xs uppercase tracking-widest px-6 sm:px-8 py-3.5 sm:py-4 rounded-full transition flex items-center gap-2"
                   >
                     <Wine className="w-3.5 h-3.5 text-[#D4AF37]" />
                     <span>Bodega & Licores</span>
@@ -723,7 +729,7 @@ export default function Home() {
             </div>
           </section>
 
-          {/* LO MÁS PEDIDO EN IZAR */}
+          {/* LO MÁS PEDIDO (ROTA DE 1 EN 1 EN MÓVIL Y DE 3 EN 3 EN DESKTOP) */}
           <section id="carta" className="py-16 sm:py-24 px-4 sm:px-6 max-w-7xl mx-auto">
             <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 sm:mb-12 gap-4 sm:gap-6 border-b border-black/10 pb-6 sm:pb-8">
               <div>
@@ -735,13 +741,19 @@ export default function Home() {
               <div className="flex items-center justify-between sm:justify-start gap-4">
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setPaginaComida((prev) => (prev === 0 ? Math.ceil(PRODUCTOS_MAS_PEDIDOS.length / 3) - 1 : prev - 1))}
+                    onClick={() => {
+                      const totalPags = Math.ceil(PRODUCTOS_MAS_PEDIDOS.length / pasoCarrusel);
+                      setPaginaComida((prev) => (prev === 0 ? totalPags - 1 : prev - 1));
+                    }}
                     className="p-2.5 sm:p-3 bg-white border border-black/10 rounded-full hover:bg-[#1C1917] hover:text-white transition"
                   >
                     <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
                   <button
-                    onClick={() => setPaginaComida((prev) => (prev + 1) % Math.ceil(PRODUCTOS_MAS_PEDIDOS.length / 3))}
+                    onClick={() => {
+                      const totalPags = Math.ceil(PRODUCTOS_MAS_PEDIDOS.length / pasoCarrusel);
+                      setPaginaComida((prev) => (prev + 1) % totalPags);
+                    }}
                     className="p-2.5 sm:p-3 bg-white border border-black/10 rounded-full hover:bg-[#1C1917] hover:text-white transition"
                   >
                     <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -752,11 +764,11 @@ export default function Home() {
 
             <AnimatePresence mode="wait">
               <motion.div
-                key={paginaComida}
+                key={paginaComida + '-' + (esMovil ? 'm' : 'd')}
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.5 }}
+                transition={{ duration: 0.4 }}
                 className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8"
               >
                 {itemsComidaVisibles.map((item, index) => (
@@ -768,7 +780,7 @@ export default function Home() {
                     }}
                     className="bg-white border border-black/10 rounded-3xl overflow-hidden hover:shadow-2xl transition duration-500 group cursor-pointer flex flex-col justify-between"
                   >
-                    <div className="h-52 sm:h-64 overflow-hidden relative bg-[#E5E0D8]">
+                    <div className="h-56 sm:h-64 overflow-hidden relative bg-[#E5E0D8]">
                       <img
                         src={item.imagen}
                         alt={item.nombre}
@@ -796,8 +808,9 @@ export default function Home() {
               </motion.div>
             </AnimatePresence>
 
+            {/* Puntos Indicadores */}
             <div className="flex justify-center items-center gap-2 mt-6 sm:mt-8">
-              {[...Array(Math.ceil(PRODUCTOS_MAS_PEDIDOS.length / 3))].map((_, i) => (
+              {[...Array(Math.ceil(PRODUCTOS_MAS_PEDIDOS.length / pasoCarrusel))].map((_, i) => (
                 <button
                   key={i}
                   onClick={() => setPaginaComida(i)}
@@ -807,7 +820,7 @@ export default function Home() {
             </div>
           </section>
 
-          {/* BODEGA Y LICORES COMPLETA */}
+          {/* BODEGA Y LICORES (ROTA DE 1 EN 1 EN MÓVIL Y DE 3 EN 3 EN DESKTOP) */}
           <section id="bodega" className="py-16 sm:py-24 bg-[#12100E] text-[#F3EFEA] px-4 sm:px-6 border-y border-[#D4AF37]/20">
             <div className="max-w-7xl mx-auto space-y-8 sm:space-y-12">
 
@@ -823,13 +836,19 @@ export default function Home() {
                 <div className="flex items-center justify-between sm:justify-start gap-4">
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => setPaginaBodega((prev) => (prev === 0 ? Math.ceil(BODEGA_Y_LICORES.length / 3) - 1 : prev - 1))}
+                      onClick={() => {
+                        const totalPags = Math.ceil(BODEGA_Y_LICORES.length / pasoCarrusel);
+                        setPaginaBodega((prev) => (prev === 0 ? totalPags - 1 : prev - 1));
+                      }}
                       className="p-2.5 sm:p-3 bg-[#1C1917] border border-[#D4AF37]/30 rounded-full text-[#D4AF37] hover:bg-[#D4AF37] hover:text-[#12100E] transition"
                     >
                       <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
                     <button
-                      onClick={() => setPaginaBodega((prev) => (prev + 1) % Math.ceil(BODEGA_Y_LICORES.length / 3))}
+                      onClick={() => {
+                        const totalPags = Math.ceil(BODEGA_Y_LICORES.length / pasoCarrusel);
+                        setPaginaBodega((prev) => (prev + 1) % totalPags);
+                      }}
                       className="p-2.5 sm:p-3 bg-[#1C1917] border border-[#D4AF37]/30 rounded-full text-[#D4AF37] hover:bg-[#D4AF37] hover:text-[#12100E] transition"
                     >
                       <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -840,11 +859,11 @@ export default function Home() {
 
               <AnimatePresence mode="wait">
                 <motion.div
-                  key={paginaBodega}
+                  key={paginaBodega + '-' + (esMovil ? 'm' : 'd')}
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.5 }}
+                  transition={{ duration: 0.4 }}
                   className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8"
                 >
                   {itemsBodegaVisibles.map((v, i) => (
@@ -879,7 +898,7 @@ export default function Home() {
               </AnimatePresence>
 
               <div className="flex justify-center items-center gap-2 mt-6">
-                {[...Array(Math.ceil(BODEGA_Y_LICORES.length / 3))].map((_, i) => (
+                {[...Array(Math.ceil(BODEGA_Y_LICORES.length / pasoCarrusel))].map((_, i) => (
                   <button
                     key={i}
                     onClick={() => setPaginaBodega(i)}
@@ -891,7 +910,7 @@ export default function Home() {
             </div>
           </section>
 
-          {/* ESPACIOS */}
+          {/* ESPACIOS DEL LOCAL */}
           <section id="espacios" className="py-16 sm:py-24 bg-[#E8E2D9] px-4 sm:px-6">
             <div className="max-w-7xl mx-auto">
               <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-16 space-y-2 sm:space-y-3">
@@ -1197,7 +1216,7 @@ export default function Home() {
         </div>
       </footer>
 
-      {/* MODAL DETALLE DE PRODUCTO (CON SCROLL INTERNO MÓVIL) */}
+      {/* MODAL DETALLE DE PRODUCTO */}
       <AnimatePresence>
         {productoSeleccionado && (
           <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
