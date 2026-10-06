@@ -358,14 +358,11 @@ export default function Home() {
   const [categoriaActivaScroll, setCategoriaActivaScroll] = useState<string>(CATEGORIAS_OFICIALES[0].id);
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
 
-  // Detector de pantalla móvil para carruseles
   const [esMovil, setEsMovil] = useState<boolean>(false);
 
-  // Estados para Carruseles Automáticos
   const [paginaComida, setPaginaComida] = useState<number>(0);
   const [paginaBodega, setPaginaBodega] = useState<number>(0);
 
-  // Modal Autenticación Administración
   const [mostrarModalAdmin, setMostrarModalAdmin] = useState<boolean>(false);
   const [adminUser, setAdminUser] = useState<string>('');
   const [adminPassword, setAdminPassword] = useState<string>('');
@@ -374,7 +371,6 @@ export default function Home() {
 
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  // Detectar ancho de pantalla para ajustar el tamaño del bloque del carrusel
   useEffect(() => {
     const revisarAncho = () => {
       setEsMovil(window.innerWidth < 768);
@@ -384,7 +380,6 @@ export default function Home() {
     return () => window.removeEventListener('resize', revisarAncho);
   }, []);
 
-  // Carga inicial Supabase
   useEffect(() => {
     async function cargarDatos() {
       try {
@@ -407,7 +402,6 @@ export default function Home() {
     cargarDatos();
   }, []);
 
-  // Intervalo Carrusel "Lo Más Pedido"
   useEffect(() => {
     const itemsPorPagina = esMovil ? 1 : 3;
     const totalPaginas = Math.ceil(PRODUCTOS_MAS_PEDIDOS.length / itemsPorPagina);
@@ -417,7 +411,6 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [esMovil]);
 
-  // Intervalo Carrusel "Bodega & Licores"
   useEffect(() => {
     const itemsPorPagina = esMovil ? 1 : 3;
     const totalPaginas = Math.ceil(BODEGA_Y_LICORES.length / itemsPorPagina);
@@ -476,13 +469,12 @@ export default function Home() {
     }
   };
 
-  // Ítems dinámicos según pantalla
   const pasoCarrusel = esMovil ? 1 : 3;
   const itemsComidaVisibles = PRODUCTOS_MAS_PEDIDOS.slice(paginaComida * pasoCarrusel, paginaComida * pasoCarrusel + pasoCarrusel);
   const itemsBodegaVisibles = BODEGA_Y_LICORES.slice(paginaBodega * pasoCarrusel, paginaBodega * pasoCarrusel + pasoCarrusel);
 
   return (
-    <div className="min-h-screen bg-[#F3EFEA] text-[#1C1917] font-sans antialiased selection:bg-[#1C1917] selection:text-[#F3EFEA]">
+    <div className="min-h-screen bg-[#F3EFEA] text-[#1C1917] font-sans antialiased selection:bg-[#1C1917] selection:text-[#F3EFEA] overflow-x-hidden">
 
       {/* PORTAL LANDING */}
       {vistaActual === 'landing' && (
@@ -490,7 +482,7 @@ export default function Home() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="relative min-h-screen w-full flex flex-col justify-between items-center px-4 py-8 bg-[#1C1917] text-[#F3EFEA] overflow-hidden"
+          className="relative min-h-screen w-full flex flex-col justify-between items-center px-4 py-8 bg-[#1C1917] text-[#F3EFEA] overflow-x-hidden"
         >
           <div className="absolute inset-0 z-0">
             <img
@@ -506,7 +498,7 @@ export default function Home() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.6 }}
-              className="p-1 bg-[#F3EFEA] rounded-full border-4 border-[#D4AF37] mb-4 shadow-2xl flex items-center justify-center w-28 h-28 sm:w-36 sm:h-36"
+              className="p-1 bg-[#F3EFEA] rounded-full border-4 border-[#D4AF37] mb-4 shadow-[0_0_30px_rgba(212,175,55,0.3)] flex items-center justify-center w-36 h-36 sm:w-44 sm:h-44"
             >
               <img src={logoUrl} alt="Izar Logo Oficial" className="w-full h-full object-contain rounded-full" />
             </motion.div>
@@ -580,16 +572,16 @@ export default function Home() {
       {vistaActual === 'web' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
 
-          {/* HEADER */}
+          {/* HEADER CON LOGO RESALTADO */}
           <header className="sticky top-0 z-50 bg-[#F3EFEA]/95 backdrop-blur-md border-b border-black/10">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
-              <div className="flex items-center gap-2.5 cursor-pointer group" onClick={() => setVistaActual('landing')}>
-                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full border border-black p-0.5 overflow-hidden transition transform group-hover:scale-105 shadow-xs bg-white">
-                  <img src={logoUrl} alt="IZAR" className="w-full h-full object-cover rounded-full" />
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 h-18 sm:h-22 flex items-center justify-between">
+              <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setVistaActual('landing')}>
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full border-2 border-[#D4AF37] p-0.5 overflow-hidden transition transform group-hover:scale-105 shadow-md bg-white shrink-0">
+                  <img src={logoUrl} alt="IZAR CAFÉ BAR" className="w-full h-full object-contain rounded-full" />
                 </div>
                 <div>
-                  <span className="font-serif font-black tracking-wider text-base sm:text-xl block leading-none text-[#1C1917]">IZAR</span>
-                  <span className="text-[8px] sm:text-[10px] uppercase tracking-widest text-[#1C1917]/60 font-bold block mt-0.5">CAFÉ BAR · A CORUÑA</span>
+                  <span className="font-serif font-black tracking-wider text-lg sm:text-2xl block leading-none text-[#1C1917]">IZAR</span>
+                  <span className="text-[9px] sm:text-[11px] uppercase tracking-widest text-[#1C1917]/70 font-bold block mt-0.5">CAFÉ BAR · A CORUÑA</span>
                 </div>
               </div>
 
@@ -614,30 +606,32 @@ export default function Home() {
             </div>
           </header>
 
-          {/* HERO CON VÍDEO EN ENCUADRE COMPLETO */}
-          <section id="inicio" className="relative min-h-[90vh] flex items-center justify-center overflow-hidden bg-black text-[#F3EFEA] px-4 sm:px-6 py-12 sm:py-20">
+          {/* HERO CON VÍDEO CENTRADO SOBERANO */}
+          <section id="inicio" className="relative min-h-[85vh] sm:min-h-[90vh] flex items-center justify-center overflow-hidden bg-black text-[#F3EFEA] px-4 sm:px-6 py-16">
             <video
               autoPlay
               loop
               muted
               playsInline
-              className="absolute inset-0 w-full h-full object-cover opacity-60 filter brightness-75"
+              className="absolute inset-0 w-full h-full object-cover object-center opacity-65 filter brightness-75"
               src="https://framerusercontent.com/assets/XJhAHxuDXKKrpWMFb5fuOB0jvoA.mp4"
             />
+
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/50 pointer-events-none" />
 
             <div className="relative z-10 max-w-7xl mx-auto w-full grid md:grid-cols-12 gap-6 sm:gap-8 items-center">
               <div className="md:col-span-8 lg:col-span-7 space-y-4 sm:space-y-6 text-left">
 
-                <div className="inline-flex items-center gap-2 bg-[#1C1917]/85 backdrop-blur-md border border-white/20 px-3.5 py-1.5 rounded-full text-[10px] sm:text-xs font-semibold tracking-wide">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <div className="inline-flex items-center gap-2 bg-[#1C1917]/90 backdrop-blur-md border border-white/20 px-3.5 py-1.5 rounded-full text-[10px] sm:text-xs font-semibold tracking-wide">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
                   <span>ABIERTO HOY · DESDE LAS 06:00 AM · AV. CONCHIÑAS 24</span>
                 </div>
 
                 <div className="space-y-1 sm:space-y-2">
-                  <h1 className="text-3xl sm:text-6xl lg:text-7xl font-serif font-black tracking-tight leading-[1.05] uppercase text-white drop-shadow-xl">
+                  <h1 className="text-3xl sm:text-6xl lg:text-7xl font-serif font-black tracking-tight leading-[1.05] uppercase text-white drop-shadow-2xl">
                     PEQUEÑAS PAUSAS,
                   </h1>
-                  <p className="text-2xl sm:text-5xl lg:text-6xl font-serif italic font-normal text-[#D4AF37] tracking-tight">
+                  <p className="text-2xl sm:text-5xl lg:text-6xl font-serif italic font-normal text-[#D4AF37] tracking-tight drop-shadow-md">
                     grandes historias.
                   </p>
                 </div>
@@ -649,7 +643,7 @@ export default function Home() {
                 <div className="flex flex-wrap items-center gap-3 pt-2">
                   <button
                     onClick={() => setVistaActual('menu')}
-                    className="bg-[#F3EFEA] text-[#1C1917] hover:bg-white font-bold text-[10px] sm:text-xs uppercase tracking-widest px-6 sm:px-8 py-3.5 sm:py-4 rounded-full transition shadow-xl flex items-center gap-2"
+                    className="bg-[#F3EFEA] text-[#1C1917] hover:bg-white font-bold text-[10px] sm:text-xs uppercase tracking-widest px-6 sm:px-8 py-3.5 sm:py-4 rounded-full transition shadow-2xl flex items-center gap-2"
                   >
                     <BookOpen className="w-3.5 h-3.5 text-[#3F4E3E]" />
                     <span>Ver Carta Digital</span>
@@ -657,7 +651,7 @@ export default function Home() {
                   </button>
                   <a
                     href="#bodega"
-                    className="bg-black/40 backdrop-blur-md hover:bg-black/60 text-white border border-white/30 font-bold text-[10px] sm:text-xs uppercase tracking-widest px-6 sm:px-8 py-3.5 sm:py-4 rounded-full transition flex items-center gap-2"
+                    className="bg-black/50 backdrop-blur-md hover:bg-black/80 text-white border border-white/30 font-bold text-[10px] sm:text-xs uppercase tracking-widest px-6 sm:px-8 py-3.5 sm:py-4 rounded-full transition flex items-center gap-2 shadow-xl"
                   >
                     <Wine className="w-3.5 h-3.5 text-[#D4AF37]" />
                     <span>Bodega & Licores</span>
@@ -668,7 +662,7 @@ export default function Home() {
             </div>
           </section>
 
-          {/* TICKER */}
+          {/* TICKER DE TEXTO CONTINUO */}
           <div className="w-full bg-[#3F4E3E] text-[#F3EFEA] py-3 sm:py-4 overflow-hidden border-y border-black">
             <div className="flex whitespace-nowrap animate-marquee">
               {[...Array(6)].map((_, i) => (
@@ -688,8 +682,8 @@ export default function Home() {
             </div>
           </div>
 
-          {/* FILOSOFÍA */}
-          <section id="about" className="py-16 sm:py-24 bg-[#1C1917] text-[#F3EFEA] px-4 sm:px-6">
+          {/* FILOSOFÍA BENTO */}
+          <section id="about" className="py-16 sm:py-24 bg-[#1C1917] text-[#F3EFEA] px-4 sm:px-6 overflow-x-hidden">
             <div className="max-w-7xl mx-auto grid lg:grid-cols-12 gap-8 sm:gap-12 items-center">
               <div className="lg:col-span-5 h-[320px] sm:h-[500px] rounded-3xl overflow-hidden border border-white/10 shadow-2xl">
                 <img
@@ -729,8 +723,8 @@ export default function Home() {
             </div>
           </section>
 
-          {/* LO MÁS PEDIDO (ROTA DE 1 EN 1 EN MÓVIL Y DE 3 EN 3 EN DESKTOP) */}
-          <section id="carta" className="py-16 sm:py-24 px-4 sm:px-6 max-w-7xl mx-auto">
+          {/* LO MÁS PEDIDO EN IZAR (CARRUSEL RESPONSIVO) */}
+          <section id="carta" className="py-16 sm:py-24 px-4 sm:px-6 max-w-7xl mx-auto overflow-x-hidden">
             <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 sm:mb-12 gap-4 sm:gap-6 border-b border-black/10 pb-6 sm:pb-8">
               <div>
                 <span className="text-[10px] sm:text-xs uppercase tracking-[0.3em] font-bold text-[#3F4E3E]">Desayunos, Brunch & Tapas</span>
@@ -745,7 +739,7 @@ export default function Home() {
                       const totalPags = Math.ceil(PRODUCTOS_MAS_PEDIDOS.length / pasoCarrusel);
                       setPaginaComida((prev) => (prev === 0 ? totalPags - 1 : prev - 1));
                     }}
-                    className="p-2.5 sm:p-3 bg-white border border-black/10 rounded-full hover:bg-[#1C1917] hover:text-white transition"
+                    className="p-2.5 sm:p-3 bg-white border border-black/10 rounded-full hover:bg-[#1C1917] hover:text-white transition shadow-sm"
                   >
                     <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
@@ -754,7 +748,7 @@ export default function Home() {
                       const totalPags = Math.ceil(PRODUCTOS_MAS_PEDIDOS.length / pasoCarrusel);
                       setPaginaComida((prev) => (prev + 1) % totalPags);
                     }}
-                    className="p-2.5 sm:p-3 bg-white border border-black/10 rounded-full hover:bg-[#1C1917] hover:text-white transition"
+                    className="p-2.5 sm:p-3 bg-white border border-black/10 rounded-full hover:bg-[#1C1917] hover:text-white transition shadow-sm"
                   >
                     <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
@@ -780,7 +774,7 @@ export default function Home() {
                     }}
                     className="bg-white border border-black/10 rounded-3xl overflow-hidden hover:shadow-2xl transition duration-500 group cursor-pointer flex flex-col justify-between"
                   >
-                    <div className="h-56 sm:h-64 overflow-hidden relative bg-[#E5E0D8]">
+                    <div className="h-52 sm:h-64 overflow-hidden relative bg-[#E5E0D8]">
                       <img
                         src={item.imagen}
                         alt={item.nombre}
@@ -808,7 +802,6 @@ export default function Home() {
               </motion.div>
             </AnimatePresence>
 
-            {/* Puntos Indicadores */}
             <div className="flex justify-center items-center gap-2 mt-6 sm:mt-8">
               {[...Array(Math.ceil(PRODUCTOS_MAS_PEDIDOS.length / pasoCarrusel))].map((_, i) => (
                 <button
@@ -820,8 +813,8 @@ export default function Home() {
             </div>
           </section>
 
-          {/* BODEGA Y LICORES (ROTA DE 1 EN 1 EN MÓVIL Y DE 3 EN 3 EN DESKTOP) */}
-          <section id="bodega" className="py-16 sm:py-24 bg-[#12100E] text-[#F3EFEA] px-4 sm:px-6 border-y border-[#D4AF37]/20">
+          {/* BODEGA Y LICORES (CARRUSEL RESPONSIVO) */}
+          <section id="bodega" className="py-16 sm:py-24 bg-[#12100E] text-[#F3EFEA] px-4 sm:px-6 border-y border-[#D4AF37]/20 overflow-x-hidden">
             <div className="max-w-7xl mx-auto space-y-8 sm:space-y-12">
 
               <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 sm:gap-6 border-b border-white/10 pb-6 sm:pb-8">
@@ -840,7 +833,7 @@ export default function Home() {
                         const totalPags = Math.ceil(BODEGA_Y_LICORES.length / pasoCarrusel);
                         setPaginaBodega((prev) => (prev === 0 ? totalPags - 1 : prev - 1));
                       }}
-                      className="p-2.5 sm:p-3 bg-[#1C1917] border border-[#D4AF37]/30 rounded-full text-[#D4AF37] hover:bg-[#D4AF37] hover:text-[#12100E] transition"
+                      className="p-2.5 sm:p-3 bg-[#1C1917] border border-[#D4AF37]/30 rounded-full text-[#D4AF37] hover:bg-[#D4AF37] hover:text-[#12100E] transition shadow-md"
                     >
                       <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
@@ -849,7 +842,7 @@ export default function Home() {
                         const totalPags = Math.ceil(BODEGA_Y_LICORES.length / pasoCarrusel);
                         setPaginaBodega((prev) => (prev + 1) % totalPags);
                       }}
-                      className="p-2.5 sm:p-3 bg-[#1C1917] border border-[#D4AF37]/30 rounded-full text-[#D4AF37] hover:bg-[#D4AF37] hover:text-[#12100E] transition"
+                      className="p-2.5 sm:p-3 bg-[#1C1917] border border-[#D4AF37]/30 rounded-full text-[#D4AF37] hover:bg-[#D4AF37] hover:text-[#12100E] transition shadow-md"
                     >
                       <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
@@ -911,7 +904,7 @@ export default function Home() {
           </section>
 
           {/* ESPACIOS DEL LOCAL */}
-          <section id="espacios" className="py-16 sm:py-24 bg-[#E8E2D9] px-4 sm:px-6">
+          <section id="espacios" className="py-16 sm:py-24 bg-[#E8E2D9] px-4 sm:px-6 overflow-x-hidden">
             <div className="max-w-7xl mx-auto">
               <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-16 space-y-2 sm:space-y-3">
                 <span className="text-[10px] sm:text-xs uppercase tracking-[0.3em] font-bold text-[#3F4E3E]">Ambiente Cómodo</span>
@@ -947,7 +940,7 @@ export default function Home() {
           </section>
 
           {/* RESEÑAS */}
-          <section className="py-16 sm:py-24 px-4 sm:px-6 max-w-7xl mx-auto">
+          <section className="py-16 sm:py-24 px-4 sm:px-6 max-w-7xl mx-auto overflow-x-hidden">
             <div className="text-center max-w-xl mx-auto mb-10 sm:mb-16 space-y-2">
               <span className="text-[10px] sm:text-xs uppercase tracking-[0.3em] font-bold text-[#3F4E3E]">Comunidad</span>
               <h2 className="text-3xl sm:text-4xl font-serif font-bold text-[#1C1917]">Lo que dicen nuestros clientes</h2>
@@ -974,7 +967,7 @@ export default function Home() {
           </section>
 
           {/* CONTACTO */}
-          <section id="contacto" className="py-16 sm:py-24 px-4 sm:px-6 max-w-7xl mx-auto">
+          <section id="contacto" className="py-16 sm:py-24 px-4 sm:px-6 max-w-7xl mx-auto overflow-x-hidden">
             <div className="bg-[#1C1917] text-[#F3EFEA] rounded-3xl p-6 sm:p-12 md:p-16 grid md:grid-cols-2 gap-8 sm:gap-12 items-center">
 
               <div className="space-y-4 sm:space-y-6">
@@ -1038,7 +1031,7 @@ export default function Home() {
 
       {/* CARTA DIGITAL INTERACTIVA */}
       {vistaActual === 'menu' && (
-        <div className="min-h-screen bg-[#F3EFEA] pb-28">
+        <div className="min-h-screen bg-[#F3EFEA] pb-28 overflow-x-hidden">
 
           {/* Header App Carta */}
           <div className="sticky top-0 z-50 bg-[#1C1917] text-[#F3EFEA] px-4 py-3 flex items-center justify-between shadow-md border-b border-white/10">
@@ -1187,10 +1180,10 @@ export default function Home() {
       )}
 
       {/* FOOTER GENERAL */}
-      <footer className="bg-[#1C1917] text-slate-400 py-12 sm:py-16 border-t border-white/10 px-4 sm:px-6">
+      <footer className="bg-[#1C1917] text-slate-400 py-12 sm:py-16 border-t border-white/10 px-4 sm:px-6 overflow-x-hidden">
         <div className="max-w-7xl mx-auto px-2 sm:px-6 grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-12 mb-8 sm:mb-12">
           <div>
-            <img src={logoUrl} alt="Izar Logo" className="h-12 sm:h-14 w-auto mb-4 bg-white/5 p-2 rounded-xl border border-white/10" />
+            <img src={logoUrl} alt="Izar Logo" className="h-14 sm:h-16 w-auto mb-4 bg-white/5 p-2 rounded-xl border border-white/10" />
             <p className="text-[#D4AF37] text-xs font-serif italic mb-2 sm:mb-3">"PEQUEÑAS PAUSAS, GRANDES HISTORIAS"</p>
             <p className="text-xs leading-relaxed text-slate-400">Cafetería, desayunos, brunch, tapas, cañas y bodega en A Coruña, Galicia ES.</p>
           </div>
